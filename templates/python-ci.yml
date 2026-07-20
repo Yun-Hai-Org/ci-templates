@@ -16,7 +16,7 @@ on:
 
 jobs:
   ci:
-    uses: Yun-Hai-Org/ci-templates/.github/workflows/standard-ci.yml@v1
+    uses: Yun-Hai-Org/ci-templates/.github/workflows/standard-ci.yml@main
     with:
       project-type: "python"
       python-version: "3.12"

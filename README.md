@@ -7,7 +7,7 @@
 ```
 业务项目 .github/workflows/ci.yml
   │
-  │  uses: Yun-Hai-Org/ci-templates/.github/workflows/standard-ci.yml@v1
+  │  uses: Yun-Hai-Org/ci-templates/.github/workflows/standard-ci.yml@main
   │  with: { project-type: 'bun', ... }
   │  secrets: { WECOM_BOT_KEY: ..., SEMGREP_APP_TOKEN: ... }
   ▼
@@ -290,7 +290,7 @@ secrets:
 ```yaml
 jobs:
   ci:
-    uses: Yun-Hai-Org/ci-templates/.github/workflows/standard-ci.yml@v1
+    uses: Yun-Hai-Org/ci-templates/.github/workflows/standard-ci.yml@main
     with:
       project-type: 'bun'
     secrets: inherit
@@ -332,7 +332,7 @@ on:
   workflow_dispatch:
 jobs:
   ci:
-    uses: Yun-Hai-Org/ci-templates/.github/workflows/standard-ci.yml@v1
+    uses: Yun-Hai-Org/ci-templates/.github/workflows/standard-ci.yml@main
     with:
       project-type: 'bun'
       run-release-gates: true # E 类依赖 D 类通过
@@ -362,7 +362,7 @@ jobs:
 
 ### 方案 B：仓库内 ci.yml（默认，当前采用）
 
-在业务仓库放一个 `.github/workflows/ci.yml`，`uses:` 指向本仓库的 `standard-ci.yml@v1`。适合任何 GitHub 版本，公开/私有仓库均可，无版本限制。
+在业务仓库放一个 `.github/workflows/ci.yml`，`uses:` 指向本仓库的 `standard-ci.yml@main`。适合任何 GitHub 版本，公开/私有仓库均可，无版本限制。
 
 ```yaml
 # 业务项目 .github/workflows/ci.yml
@@ -373,7 +373,7 @@ on:
     branches: [main]
 jobs:
   ci:
-    uses: Yun-Hai-Org/ci-templates/.github/workflows/standard-ci.yml@v1
+    uses: Yun-Hai-Org/ci-templates/.github/workflows/standard-ci.yml@main
     with:
       project-type: 'bun' # 或 'python'
       wecom-notify: true
@@ -382,7 +382,7 @@ jobs:
 ```
 
 **优点**：零版本门槛、配置可见可调试、开发者可在 with 下自行调整开关。
-**缺点**：每个业务仓库都要放一份 ci.yml，升级时各仓库需自行同步（指向 `@v1` 可自动跟进 minor 补丁）。
+**缺点**：每个业务仓库都要放一份 ci.yml；指向 `@main` 时所有调用方自动跟 main 最新，main 上的不稳定改动会立即影响所有业务仓库。
 
 ### 方案 A：Repository Ruleset 全局强制（升级路径，后续采用）
 
@@ -427,7 +427,7 @@ on:
     branches: [main]
 jobs:
   ci:
-    uses: Yun-Hai-Org/ci-templates/.github/workflows/standard-ci.yml@v1
+    uses: Yun-Hai-Org/ci-templates/.github/workflows/standard-ci.yml@main
     with:
       project-type: 'bun' # 或 'python'
       wecom-notify: true
@@ -473,13 +473,13 @@ jobs:
 
 ## 版本管理
 
-业务项目统一使用 `@v1`（moving tag，自动获得 minor 补丁）：
+业务项目和内部子调用统一使用 `@main`：workflow 改动合入 main 即时对所有调用方生效，无需维护 tag。
 
 ```yaml
-uses: Yun-Hai-Org/ci-templates/.github/workflows/standard-ci.yml@v1
+uses: Yun-Hai-Org/ci-templates/.github/workflows/standard-ci.yml@main
 ```
 
-稳定性要求高的项目可锁精确版本 `@v1.1.0`。**不要用 `@main`**。
+**Trade-off**：main 上的不稳定改动会立即影响所有调用方。缓解措施：PR 合入前必须通过 smoke-test（main push 触发，端到端验证 standard-ci.yml 编排链路）；改子 workflow 的 input schema 时必须同步修改 standard-ci.yml 调用处，code-review 重点检查。
 
 ## 文档
 
