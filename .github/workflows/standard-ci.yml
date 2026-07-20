@@ -1,6 +1,6 @@
 name: Standard CI
 
-# 对外唯一入口：业务项目通过 uses: Yun-Hai-Org/ci-templates/.github/workflows/standard-ci.yml@v1 调用。
+# 对外唯一入口：业务项目通过 uses: Yun-Hai-Org/ci-templates/.github/workflows/standard-ci.yml@main 调用。
 # 内部编排 notify-start → [lint / security / dependency] → notify-end。
 
 on:
@@ -175,13 +175,12 @@ jobs:
     env:
       WECOM_BOT_KEY: ${{ secrets.WECOM_BOT_KEY }}
     steps:
-      - uses: actions/checkout@v5
       - name: Debug context
         if: ${{ inputs.debug == true }}
         env:
           INPUTS: ${{ toJSON(inputs) }}
         run: echo "$INPUTS"
-      - uses: ./.github/actions/notify-wecom
+      - uses: Yun-Hai-Org/ci-templates/.github/actions/notify-wecom@main
         with:
           title: "🚀 CI 开始"
           status: started
@@ -199,7 +198,7 @@ jobs:
   lint:
     name: Lint & Format
     if: ${{ inputs.run-static-analysis == true }}
-    uses: ./.github/workflows/lint-checks.yml
+    uses: Yun-Hai-Org/ci-templates/.github/workflows/lint-checks.yml@main
     with:
       project-type: ${{ inputs.project-type }}
       run-extended-lint: ${{ inputs.run-extended-lint }}
@@ -211,7 +210,7 @@ jobs:
   security:
     name: Security Scan
     if: ${{ inputs.run-security-scan == true }}
-    uses: ./.github/workflows/security-scans.yml
+    uses: Yun-Hai-Org/ci-templates/.github/workflows/security-scans.yml@main
     with:
       project-type: ${{ inputs.project-type }}
       run-knip: ${{ inputs.run-knip }}
@@ -224,7 +223,7 @@ jobs:
   dependency:
     name: Dependency Audit
     if: ${{ inputs.run-dependency-audit == true }}
-    uses: ./.github/workflows/dependency-audit.yml
+    uses: Yun-Hai-Org/ci-templates/.github/workflows/dependency-audit.yml@main
     with:
       project-type: ${{ inputs.project-type }}
       run-osv-scanner: ${{ inputs.run-osv-scanner }}
@@ -238,7 +237,7 @@ jobs:
   release-gates:
     name: Release Gates (D)
     if: ${{ inputs.run-release-gates == true }}
-    uses: ./.github/workflows/release-gates.yml
+    uses: Yun-Hai-Org/ci-templates/.github/workflows/release-gates.yml@main
     with:
       project-type: ${{ inputs.project-type }}
       jira-prefix: ${{ inputs.jira-prefix }}
@@ -253,7 +252,7 @@ jobs:
     name: AI Content Test (E)
     if: ${{ inputs.run-ai-content-test == true && needs.release-gates.result == 'success' }}
     needs: [release-gates]
-    uses: ./.github/workflows/ai-content-test.yml
+    uses: Yun-Hai-Org/ci-templates/.github/workflows/ai-content-test.yml@main
     with:
       test-path: ${{ inputs.promptfoo-test-path }}
       fail-threshold: ${{ inputs.promptfoo-fail-threshold }}
@@ -264,7 +263,7 @@ jobs:
     name: Load Test (E)
     if: ${{ inputs.run-load-test == true && needs.release-gates.result == 'success' }}
     needs: [release-gates]
-    uses: ./.github/workflows/load-test.yml
+    uses: Yun-Hai-Org/ci-templates/.github/workflows/load-test.yml@main
     with:
       framework: ${{ inputs.load-test-framework }}
       test-script: ${{ inputs.load-test-script }}
@@ -277,7 +276,7 @@ jobs:
     name: DB Benchmark (E)
     if: ${{ inputs.run-db-benchmark == true && needs.release-gates.result == 'success' }}
     needs: [release-gates]
-    uses: ./.github/workflows/db-benchmark.yml
+    uses: Yun-Hai-Org/ci-templates/.github/workflows/db-benchmark.yml@main
     with:
       pg-version: ${{ inputs.db-pg-version }}
       scale-factor: ${{ inputs.db-scale-factor }}
@@ -292,8 +291,6 @@ jobs:
     env:
       WECOM_BOT_KEY: ${{ secrets.WECOM_BOT_KEY }}
     steps:
-      - uses: actions/checkout@v5
-
       - name: Compute overall status
         id: status
         shell: bash
@@ -356,7 +353,7 @@ jobs:
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
 
-      - uses: ./.github/actions/notify-wecom
+      - uses: Yun-Hai-Org/ci-templates/.github/actions/notify-wecom@main
         with:
           title: ${{ steps.status.outputs.title }}
           status: ${{ steps.status.outputs.status }}
