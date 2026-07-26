@@ -55,7 +55,7 @@ jobs:
       # ============================================================
       - name: Setup OPA
         if: hashFiles('policy/**') != ''
-        uses: ./.github/actions/
+        uses: ./.github/actions/setup-opa
 
       - name: OPA fmt check (policies)
         if: hashFiles('policy/**') != ''
@@ -163,7 +163,7 @@ jobs:
       # ============================================================
       - name: Setup AI tools (ajv)
         if: inputs.schema-check-paths != ''
-        uses: ./.github/actions/
+        uses: ./.github/actions/setup-ai-tools
 
       - name: Schema check (Agent config)
         if: inputs.schema-check-paths != ''
@@ -194,7 +194,7 @@ jobs:
       # ============================================================
       - name: Setup commitlint
         if: github.event_name == 'pull_request'
-        uses: ./.github/actions/
+        uses: ./.github/actions/setup-ai-tools
 
       - name: commitlint check (PR commits)
         if: github.event_name == 'pull_request'
