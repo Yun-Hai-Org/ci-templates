@@ -115,6 +115,7 @@ jobs:
       run-security-scan: true
       run-knip: true
       run-dependency-audit: true
+      run-osv-scanner: true
       run-unit-tests: true
       run-integration-tests: true
       run-e2e-tests: true
@@ -123,8 +124,6 @@ jobs:
       run-ai-content-test: true
       run-load-test: true
       run-db-benchmark: true
-      jira-prefix: "PROJ"
-      jira-warning-only: true
       schema-check-paths: "agents/*.json"
       # ci-templates 自身也跑 SonarQube（org secret SONAR_TOKEN 已配）
       sonar-organization: "yun-hai-org"

@@ -11,7 +11,7 @@ D 类卡点在 `release-gates.yml` 中实现，由 `standard-ci.yml` 的 `run-re
 | OPA test           | `opa test`                   | `policy/**` 存在          | 单元测试失败则 error                              |
 | Semgrep 自定义规则 | `semgrep --config .semgrep/` | `.semgrep/*.yml` 存在     | WARNING 以上 error                                |
 | Jira ID 校验       | shell + grep                 | PR 事件                   | 失败 error（`jira-warning-only=true` 时 warning） |
-| Schema 校验        | `ajv`                        | `schema-check-paths` 非空 | 校验失败 error                                    |
+| Schema 校验        | `ajv-cli`                    | `schema-check-paths` 非空 | 校验失败 error                                    |
 | commitlint         | `commitlint`                 | PR 事件                   | 非 Conventional Commits 格式 error                |
 
 ## OPA 策略

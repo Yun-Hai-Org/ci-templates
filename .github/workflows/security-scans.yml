@@ -209,7 +209,7 @@ jobs:
 
       - name: SonarQube scan
         if: ${{ env.SONAR_TOKEN != '' && inputs.sonar-organization != '' }}
-        uses: SonarSource/sonarqube-scan-action@v6
+        uses: SonarSource/sonarqube-scan-action@v8
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:

@@ -43,7 +43,7 @@ jobs:
           if [ -d "db" ] || [ -d "migrations" ] || [ -d "sql" ] || [ -d "prisma" ] || \
              [ -f "docker-compose.yml" ] || [ -f "docker-compose.yaml" ] || \
              [ -f "schema.sql" ] || \
-             ls tests/db/*.sql 2>/dev/null | head -1 | grep -q .; then
+             find tests/db -maxdepth 1 -name '*.sql' 2>/dev/null | grep -q .; then
             echo "has_db=true" >> "$GITHUB_OUTPUT"
             echo "Found database-related files, running pgbench benchmark"
           else
@@ -124,7 +124,7 @@ jobs:
 
       - name: Upload pgbench report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: pgbench-report
           path: pgbench-output.txt
