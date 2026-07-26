@@ -224,28 +224,40 @@ jobs:
           fi
 
       - name: Setup Bun
-        if: steps.check-integration.outputs.found == 'true' && inputs.project-type == 'bun' && hashFiles('package.json') != ''
+        if: >-
+          steps.check-integration.outputs.found == 'true' &&
+          inputs.project-type == 'bun' &&
+          hashFiles('package.json') != ''
         uses: ./.github/actions/setup-bun
         with:
           bun-version: ${{ inputs.bun-version }}
           working-directory: ${{ inputs.working-directory }}
 
       - name: Setup Python
-        if: steps.check-integration.outputs.found == 'true' && inputs.project-type == 'python' && hashFiles('pyproject.toml', 'setup.py', 'requirements.txt') != ''
+        if: >-
+          steps.check-integration.outputs.found == 'true' &&
+          inputs.project-type == 'python' &&
+          hashFiles('pyproject.toml', 'setup.py', 'requirements.txt') != ''
         uses: ./.github/actions/setup-python
         with:
           python-version: ${{ inputs.python-version }}
           working-directory: ${{ inputs.working-directory }}
 
       - name: Setup Rust
-        if: steps.check-integration.outputs.found == 'true' && inputs.project-type == 'rust' && hashFiles('Cargo.toml') != ''
+        if: >-
+          steps.check-integration.outputs.found == 'true' &&
+          inputs.project-type == 'rust' &&
+          hashFiles('Cargo.toml') != ''
         uses: ./.github/actions/setup-rust
         with:
           rust-version: ${{ inputs.rust-version }}
           working-directory: ${{ inputs.working-directory }}
 
       - name: Setup Node
-        if: steps.check-integration.outputs.found == 'true' && inputs.project-type == 'node' && hashFiles('package.json') != ''
+        if: >-
+          steps.check-integration.outputs.found == 'true' &&
+          inputs.project-type == 'node' &&
+          hashFiles('package.json') != ''
         uses: ./.github/actions/setup-node
         with:
           node-version: ${{ inputs.node-version }}
@@ -253,19 +265,31 @@ jobs:
           working-directory: ${{ inputs.working-directory }}
 
       - name: Install deps (Bun)
-        if: steps.check-integration.outputs.found == 'true' && inputs.project-type == 'bun' && hashFiles('package.json') != ''
+        if: >-
+          steps.check-integration.outputs.found == 'true' &&
+          inputs.project-type == 'bun' &&
+          hashFiles('package.json') != ''
         run: bun install --frozen-lockfile
 
       - name: Install deps (Python)
-        if: steps.check-integration.outputs.found == 'true' && inputs.project-type == 'python' && hashFiles('pyproject.toml', 'setup.py', 'requirements.txt') != ''
+        if: >-
+          steps.check-integration.outputs.found == 'true' &&
+          inputs.project-type == 'python' &&
+          hashFiles('pyproject.toml', 'setup.py', 'requirements.txt') != ''
         run: uv sync --frozen
 
       - name: Install deps (Rust)
-        if: steps.check-integration.outputs.found == 'true' && inputs.project-type == 'rust' && hashFiles('Cargo.toml') != ''
+        if: >-
+          steps.check-integration.outputs.found == 'true' &&
+          inputs.project-type == 'rust' &&
+          hashFiles('Cargo.toml') != ''
         run: cargo fetch
 
       - name: Install deps (Node)
-        if: steps.check-integration.outputs.found == 'true' && inputs.project-type == 'node' && hashFiles('package.json') != ''
+        if: >-
+          steps.check-integration.outputs.found == 'true' &&
+          inputs.project-type == 'node' &&
+          hashFiles('package.json') != ''
         shell: bash
         env:
           PM: ${{ inputs.package-manager }}
@@ -278,7 +302,10 @@ jobs:
           esac
 
       - name: Run integration tests (Bun)
-        if: steps.check-integration.outputs.found == 'true' && inputs.project-type == 'bun' && hashFiles('package.json') != ''
+        if: >-
+          steps.check-integration.outputs.found == 'true' &&
+          inputs.project-type == 'bun' &&
+          hashFiles('package.json') != ''
         env:
           TEST_DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
         run: |
@@ -289,7 +316,10 @@ jobs:
           ${{ inputs.test-command-bun-integration }}
 
       - name: Run integration tests (Python)
-        if: steps.check-integration.outputs.found == 'true' && inputs.project-type == 'python' && hashFiles('pyproject.toml', 'setup.py', 'requirements.txt') != ''
+        if: >-
+          steps.check-integration.outputs.found == 'true' &&
+          inputs.project-type == 'python' &&
+          hashFiles('pyproject.toml', 'setup.py', 'requirements.txt') != ''
         env:
           TEST_DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
         run: |
@@ -300,7 +330,10 @@ jobs:
           ${{ inputs.test-command-python-integration }}
 
       - name: Run integration tests (Rust)
-        if: steps.check-integration.outputs.found == 'true' && inputs.project-type == 'rust' && hashFiles('Cargo.toml') != ''
+        if: >-
+          steps.check-integration.outputs.found == 'true' &&
+          inputs.project-type == 'rust' &&
+          hashFiles('Cargo.toml') != ''
         env:
           TEST_DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
         run: |
@@ -311,7 +344,10 @@ jobs:
           cargo test --test '*'
 
       - name: Run integration tests (Node)
-        if: steps.check-integration.outputs.found == 'true' && inputs.project-type == 'node' && hashFiles('package.json') != ''
+        if: >-
+          steps.check-integration.outputs.found == 'true' &&
+          inputs.project-type == 'node' &&
+          hashFiles('package.json') != ''
         env:
           TEST_DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
         run: |
@@ -353,21 +389,30 @@ jobs:
           fi
 
       - name: Setup Bun
-        if: ${{ steps.check-e2e.outputs.found == 'true' && inputs.project-type == 'bun' && hashFiles('package.json') != '' }}
+        if: >-
+          ${{ steps.check-e2e.outputs.found == 'true' &&
+          inputs.project-type == 'bun' &&
+          hashFiles('package.json') != '' }}
         uses: ./.github/actions/setup-bun
         with:
           bun-version: ${{ inputs.bun-version }}
           working-directory: ${{ inputs.working-directory }}
 
       - name: Setup Python
-        if: ${{ steps.check-e2e.outputs.found == 'true' && inputs.project-type == 'python' && hashFiles('pyproject.toml', 'setup.py', 'requirements.txt') != '' }}
+        if: >-
+          ${{ steps.check-e2e.outputs.found == 'true' &&
+          inputs.project-type == 'python' &&
+          hashFiles('pyproject.toml', 'setup.py', 'requirements.txt') != '' }}
         uses: ./.github/actions/setup-python
         with:
           python-version: ${{ inputs.python-version }}
           working-directory: ${{ inputs.working-directory }}
 
       - name: Setup Node
-        if: ${{ steps.check-e2e.outputs.found == 'true' && inputs.project-type == 'node' && hashFiles('package.json') != '' }}
+        if: >-
+          ${{ steps.check-e2e.outputs.found == 'true' &&
+          inputs.project-type == 'node' &&
+          hashFiles('package.json') != '' }}
         uses: ./.github/actions/setup-node
         with:
           node-version: ${{ inputs.node-version }}
@@ -375,15 +420,24 @@ jobs:
           working-directory: ${{ inputs.working-directory }}
 
       - name: Install deps (Bun)
-        if: ${{ steps.check-e2e.outputs.found == 'true' && inputs.project-type == 'bun' && hashFiles('package.json') != '' }}
+        if: >-
+          ${{ steps.check-e2e.outputs.found == 'true' &&
+          inputs.project-type == 'bun' &&
+          hashFiles('package.json') != '' }}
         run: bun install --frozen-lockfile
 
       - name: Install deps (Python)
-        if: ${{ steps.check-e2e.outputs.found == 'true' && inputs.project-type == 'python' && hashFiles('pyproject.toml', 'setup.py', 'requirements.txt') != '' }}
+        if: >-
+          ${{ steps.check-e2e.outputs.found == 'true' &&
+          inputs.project-type == 'python' &&
+          hashFiles('pyproject.toml', 'setup.py', 'requirements.txt') != '' }}
         run: uv sync --frozen
 
       - name: Install deps (Node)
-        if: ${{ steps.check-e2e.outputs.found == 'true' && inputs.project-type == 'node' && hashFiles('package.json') != '' }}
+        if: >-
+          ${{ steps.check-e2e.outputs.found == 'true' &&
+          inputs.project-type == 'node' &&
+          hashFiles('package.json') != '' }}
         shell: bash
         env:
           PM: ${{ inputs.package-manager }}
@@ -396,7 +450,10 @@ jobs:
           esac
 
       - name: Install Playwright browsers
-        if: ${{ steps.check-e2e.outputs.found == 'true' && inputs.e2e-framework == 'playwright' && (inputs.project-type == 'bun' || inputs.project-type == 'node') }}
+        if: >-
+          ${{ steps.check-e2e.outputs.found == 'true' &&
+          inputs.e2e-framework == 'playwright' &&
+          (inputs.project-type == 'bun' || inputs.project-type == 'node') }}
         shell: bash
         run: |
           if [ "${{ inputs.project-type }}" = "bun" ]; then
@@ -406,7 +463,10 @@ jobs:
           fi
 
       - name: Run E2E tests (Bun/Playwright)
-        if: ${{ steps.check-e2e.outputs.found == 'true' && inputs.project-type == 'bun' && inputs.e2e-framework == 'playwright' }}
+        if: >-
+          ${{ steps.check-e2e.outputs.found == 'true' &&
+          inputs.project-type == 'bun' &&
+          inputs.e2e-framework == 'playwright' }}
         env:
           E2E_TARGET_URL: ${{ secrets.E2E_TARGET_URL }}
           E2E_AUTH_TOKEN: ${{ secrets.E2E_AUTH_TOKEN }}
@@ -419,7 +479,10 @@ jobs:
           bunx playwright test
 
       - name: Run E2E tests (Bun/Cypress)
-        if: ${{ steps.check-e2e.outputs.found == 'true' && inputs.project-type == 'bun' && inputs.e2e-framework == 'cypress' }}
+        if: >-
+          ${{ steps.check-e2e.outputs.found == 'true' &&
+          inputs.project-type == 'bun' &&
+          inputs.e2e-framework == 'cypress' }}
         env:
           E2E_TARGET_URL: ${{ secrets.E2E_TARGET_URL }}
           E2E_AUTH_TOKEN: ${{ secrets.E2E_AUTH_TOKEN }}
@@ -445,7 +508,10 @@ jobs:
           uv run pytest tests/e2e/
 
       - name: Run E2E tests (Node/Playwright)
-        if: ${{ steps.check-e2e.outputs.found == 'true' && inputs.project-type == 'node' && inputs.e2e-framework == 'playwright' }}
+        if: >-
+          ${{ steps.check-e2e.outputs.found == 'true' &&
+          inputs.project-type == 'node' &&
+          inputs.e2e-framework == 'playwright' }}
         env:
           E2E_TARGET_URL: ${{ secrets.E2E_TARGET_URL }}
           E2E_AUTH_TOKEN: ${{ secrets.E2E_AUTH_TOKEN }}
@@ -458,7 +524,10 @@ jobs:
           npx playwright test
 
       - name: Run E2E tests (Node/Cypress)
-        if: ${{ steps.check-e2e.outputs.found == 'true' && inputs.project-type == 'node' && inputs.e2e-framework == 'cypress' }}
+        if: >-
+          ${{ steps.check-e2e.outputs.found == 'true' &&
+          inputs.project-type == 'node' &&
+          inputs.e2e-framework == 'cypress' }}
         env:
           E2E_TARGET_URL: ${{ secrets.E2E_TARGET_URL }}
           E2E_AUTH_TOKEN: ${{ secrets.E2E_AUTH_TOKEN }}

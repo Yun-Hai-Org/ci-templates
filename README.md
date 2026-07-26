@@ -2,6 +2,47 @@
 
 中心化 CI 模板仓库，通过 GitHub Actions **Reusable Workflows** 让业务项目用几行 `uses:` 调用统一的 CI 流水线。升级工具、调整规则只改本仓库，所有调用方自动生效——告别"复制粘贴地狱"。
 
+## 如何在你的仓库接入（其他 repo 引用本项目）
+
+本仓库对外暴露**唯一入口** [`standard-ci.yml`](.github/workflows/standard-ci.yml)（`on: workflow_call`）。你的仓库只需新建一个 `.github/workflows/ci.yml`，用一行 `uses:` 指向它即可——**无需 clone 本仓库、无需安装任何依赖**。
+
+### 三步接入
+
+**1. 在你的业务仓库新建 `.github/workflows/ci.yml`**（复制即用）：
+
+```yaml
+# 你的业务仓库 .github/workflows/ci.yml
+name: CI
+on:
+  pull_request:
+  push:
+    branches: [main]
+jobs:
+  ci:
+    uses: Yun-Hai-Org/ci-templates/.github/workflows/standard-ci.yml@main
+    with:
+      project-type: 'bun'        # 或 'python' / 'rust' / 'node'
+    secrets: inherit              # 透传 org/repo secrets，未配置的自动跳过
+```
+
+**2. 选 `project-type`**：`bun`（JS/TS，含 MCP Server）/ `python` / `rust` / `node`（npm/yarn/pnpm）。其余 input 全部有默认值，无需填写。
+
+**3.（可选）配 secrets**：企业微信通知、Semgrep、SonarQube、Snyk 等 token 在 GitHub Org/Repo Settings 配置后，`secrets: inherit` 自动透传；未配的检查自动跳过并 `::notice::`，不阻断 CI。
+
+### 零配置自动检测
+
+所有检查**默认开启**，工具靠**文件存在性**决定是否执行——你的仓库没有 `package.json` / `policy/` / `tests/` / `Dockerfile` 等对应文件时，相关检查自动跳过。即接入后**无需逐项开关**，不适用的一律跳过。
+
+### `@main` 还是固定 tag
+
+- `@main`：本仓库改动合入 main 即时对所有调用方生效，无需维护 tag（**当前默认**）。
+- 固定 tag（如 `@v1`）：升级 GitHub Team 后用 Organization Ruleset 全局强制时建议固定，避免 main 不稳定改动即时影响。详见 [版本管理](#版本管理) 与 [Ruleset 全局强制](docs/ruleset-onboarding.md)。
+
+> 想要 PR 强制阻断（不靠开发者自觉）？升级 GitHub Team 后用 [Organization Ruleset](docs/ruleset-onboarding.md) 全局强制，业务仓库可逐步删除 ci.yml。当前 GitHub Free 阶段用上面的 ci.yml 即可。
+
+更多细节见下方 [Inputs](#inputs) · [Secrets 配置](#secrets-配置) · [接入方式](#接入方式) · [常见配置组合](#常见配置组合)。
+
+
 ## 架构
 
 ```

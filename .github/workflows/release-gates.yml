@@ -119,11 +119,11 @@ jobs:
           WARNING_ONLY: ${{ inputs.jira-warning-only }}
         run: |
           set -euo pipefail
-          if [ -n "$JIRA_PREFIX" ]; then
-            PATTERN="\\b${JIRA_PREFIX}-[0-9]+\\b"
-          else
-            PATTERN="\\b[A-Z]+-[0-9]+\\b"
+          if [ -z "$JIRA_PREFIX" ]; then
+            echo "::notice::未配置 jira-prefix，跳过 Jira 工单 ID 校验。"
+            exit 0
           fi
+          PATTERN="\\b${JIRA_PREFIX}-[0-9]+\\b"
 
           fail=0
           # PR 标题
@@ -159,9 +159,9 @@ jobs:
         run: echo "::notice::非 PR 事件，跳过 Jira 工单 ID 校验（仅 PR 触发时检查 commit 关联）。"
 
       # ============================================================
-      # 4. Agent 配置 JSON Schema 校验（ajv）
+      # 4. Agent 配置 JSON Schema 校验（ajv-cli）
       # ============================================================
-      - name: Setup AI tools (ajv)
+      - name: Setup AI tools (ajv-cli)
         if: inputs.schema-check-paths != ''
         uses: ./.github/actions/setup-ai-tools
 
@@ -183,7 +183,7 @@ jobs:
             exit 0
           fi
           echo "校验 ${#FILES[@]} 个文件，Schema: $SCHEMA_FILE"
-          npx --yes ajv validate -s "$SCHEMA_FILE" -d "${FILES[@]}"
+          npx --yes -p ajv-cli ajv validate -s "$SCHEMA_FILE" -d "${FILES[@]}"
 
       - name: Skip Schema check (no paths)
         if: inputs.schema-check-paths == ''
@@ -205,15 +205,12 @@ jobs:
           CONFIG_ARGS=()
           # 业务仓库自带 commitlint.config.js 时优先使用；否则用临时内联配置
           if [ ! -f commitlint.config.js ] && [ ! -f .commitlintrc.js ] && [ ! -f .commitlintrc.json ]; then
-            echo "::notice::业务仓库未提供 commitlint 配置，使用模板默认（Conventional Commits + Jira）。"
+            echo "::notice::业务仓库未提供 commitlint 配置，使用模板默认（Conventional Commits；Jira 由专用步骤校验）。"
             printf '%s\n' \
               "module.exports = {" \
               "  extends: ['@commitlint/config-conventional']," \
-              "  rules: {" \
-              "    'references-empty': [2, 'never']," \
-              "  }," \
-              "};" > /tmp/commitlint.config.js
-            CONFIG_ARGS=(-f /tmp/commitlint.config.js)
+              "};" > ./commitlint.inline.config.js
+            CONFIG_ARGS=(--config ./commitlint.inline.config.js)
           fi
 
           # 安装依赖

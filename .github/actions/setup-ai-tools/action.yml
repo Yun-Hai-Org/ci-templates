@@ -1,5 +1,5 @@
 name: Setup AI Tools
-description: Install Node.js and AI/JSON tooling (promptfoo, ajv, commitlint) via npx.
+description: Install Node.js and AI/JSON tooling (promptfoo, ajv-cli, commitlint) via npx.
 
 inputs:
   node-version:
@@ -29,6 +29,6 @@ runs:
         set -euo pipefail
         # Prefetch into npm cache so first npx call in subsequent steps is fast.
         # Failures here are non-fatal — the actual step will surface a clear error if a tool is missing.
-        npx --yes ajv --version || echo "::warning::ajv not reachable via npx"
+        npx --yes -p ajv-cli ajv help || echo "::warning::ajv (via ajv-cli) not reachable via npx"
         npx --yes commitlint --version || echo "::warning::commitlint not reachable via npx"
         npx --yes promptfoo@latest --version || echo "::warning::promptfoo not reachable via npx"

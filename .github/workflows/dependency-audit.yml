@@ -181,17 +181,20 @@ jobs:
           # 直接安装 osv-scanner CLI：google/osv-scanner-action 无 v1 tag
           VERSION=$(curl -sS https://api.github.com/repos/google/osv-scanner/releases/latest \
             | grep -oP '"tag_name":\s*"\Kv[^"]+')
-          curl -fSL -o /tmp/osv-scanner.tar.gz \
-            "https://github.com/google/osv-scanner/releases/download/${VERSION}/osv-scanner_${VERSION#v}_linux_amd64.tar.gz"
-          sudo tar -xzf /tmp/osv-scanner.tar.gz -C /usr/local/bin osv-scanner
-          rm /tmp/osv-scanner.tar.gz
+          OSV_BASE="https://github.com/google/osv-scanner/releases/download"
+          curl -fSL -o /tmp/osv-scanner \
+            "${OSV_BASE}/${VERSION}/osv-scanner_linux_amd64"
+          sudo cp /tmp/osv-scanner /usr/local/bin/osv-scanner
+          sudo chmod 0755 /usr/local/bin/osv-scanner
+          rm /tmp/osv-scanner
           set +e
           osv-scanner -r ./
           EXIT=$?
           case "$EXIT" in
             0) echo "✓ OSV Scanner 扫描通过" ;;
             1) echo "::error::OSV Scanner 发现漏洞，详见上方输出"; exit 1 ;;
-            *) echo "::warning::OSV Scanner 异常（exit $EXIT），跳过"; exit 0 ;;
+            128) echo "::notice::OSV 无可扫描依赖（exit 128），模板仓库预期"; exit 0 ;;
+            *) echo "::error::OSV Scanner 异常（exit $EXIT），详见上方输出"; exit 1 ;;
           esac
 
       - name: Skip OSV Scanner (disabled)
