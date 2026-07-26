@@ -297,7 +297,7 @@ jobs:
   tests:
     name: Tests
     if: ${{ inputs.run-unit-tests == true || inputs.run-integration-tests == true || inputs.run-e2e-tests == true }}
-    uses: Yun-Hai-Org/ci-templates/.github/workflows/tests.yml@main
+    uses: ./.github/workflows/tests.yml
     with:
       project-type: ${{ inputs.project-type }}
       run-unit-tests: ${{ inputs.run-unit-tests }}
