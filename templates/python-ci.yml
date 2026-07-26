@@ -23,6 +23,9 @@ jobs:
       run-static-analysis: true
       run-security-scan: true
       run-dependency-audit: true
+      run-unit-tests: true
+      run-integration-tests: true
+      run-e2e-tests: true
       fail-on-severity: "high"
       # ===== B+ 类：SonarQube（需 SONAR_TOKEN secret + sonar-organization） =====
       # sonar-organization: "your-sonarcloud-org" # 配置后启用 SonarQube 扫描

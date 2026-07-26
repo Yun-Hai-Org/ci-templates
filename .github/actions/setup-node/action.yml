@@ -1,0 +1,33 @@
+name: Setup Node
+description: Install Node.js and cache node_modules based on lockfile hash.
+
+inputs:
+  node-version:
+    description: Node.js version (e.g. 'lts/*', '20', '18').
+    required: false
+    default: lts/*
+  package-manager:
+    description: Package manager (npm, yarn, or pnpm).
+    required: false
+    default: npm
+  working-directory:
+    description: Directory containing package.json.
+    required: false
+    default: .
+
+runs:
+  using: composite
+  steps:
+    - name: Install Node.js
+      uses: actions/setup-node@v5
+      with:
+        node-version: ${{ inputs.node-version }}
+        cache: npm
+        cache-dependency-path: ${{ inputs.working-directory }}/${{ inputs.package-manager == 'yarn' && 'yarn.lock' || inputs.package-manager == 'pnpm' && 'pnpm-lock.yaml' || 'package-lock.json' }}
+
+    - name: Install pnpm (if needed)
+      if: inputs.package-manager == 'pnpm'
+      shell: bash
+      run: |
+        corepack enable
+        corepack prepare pnpm@latest --activate

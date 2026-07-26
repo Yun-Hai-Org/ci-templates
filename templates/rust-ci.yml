@@ -1,4 +1,4 @@
-# Bun 项目 CI 样板
+# Rust 项目 CI 样板
 #
 # 接入步骤：
 # 1. 复制本文件到你的仓库 .github/workflows/ci.yml
@@ -18,15 +18,14 @@ jobs:
   ci:
     uses: Yun-Hai-Org/ci-templates/.github/workflows/standard-ci.yml@main
     with:
-      project-type: "bun"
+      project-type: "rust"
+      rust-version: "stable"
       run-static-analysis: true
       run-security-scan: true
       run-dependency-audit: true
       run-unit-tests: true
       run-integration-tests: true
       run-e2e-tests: true
-      run-extended-lint: false
-      run-knip: true
       fail-on-severity: "high"
       # ===== B+ 类：SonarQube（需 SONAR_TOKEN secret + sonar-organization） =====
       # sonar-organization: "your-sonarcloud-org" # 配置后启用 SonarQube 扫描
@@ -42,5 +41,6 @@ jobs:
       wecom-notify: true
     # secrets: inherit 自动透传 org/repo 级所有 secrets（WECOM_BOT_KEY /
     # SEMGREP_APP_TOKEN / SONAR_TOKEN / SNYK_TOKEN / GITGUARDIAN_API_KEY /
-    # OPENAI_API_KEY / ANTHROPIC_API_KEY 等），未配置的自动跳过
+    # OPENAI_API_KEY / ANTHROPIC_API_KEY / TEST_DATABASE_URL / E2E_TARGET_URL /
+    # E2E_AUTH_TOKEN 等），未配置的自动跳过
     secrets: inherit
