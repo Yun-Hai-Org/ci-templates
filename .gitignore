@@ -45,3 +45,6 @@ htmlcov/
 # .semgrep/ 是规则集源码（.yml），需纳入 Git；仅忽略运行时缓存
 .semgrep_cache/
 .semgrep/logs/
+
+# Git worktrees (local only, never commit)
+.worktrees/
