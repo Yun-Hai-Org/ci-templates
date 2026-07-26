@@ -3,16 +3,18 @@ name: CI
 # 仓库自身的完整 CI：既校验仓库文件质量，又冒烟测试 standard-ci.yml 对外接口。
 # 业务项目不需要此工作流——业务项目通过 standard-ci.yml 接入（ci.yml 或 Org Ruleset）。
 #
-# pull_request 触发，所有 job 并行：
+# push / pull_request 触发，所有 job 并行：
 #   - actionlint / yamllint / prettier / semgrep-validate：仓库文件质量自检
 #   - notify-smoke-test：调用 standard-ci.yml 验证对外接口（B 类安全扫描 + 企业微信通知）
 
 on:
   pull_request:
+  push:
+    branches: ["**"]
   workflow_dispatch:
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
 
 # 嵌套调用 security-scans.yml / release-gates.yml 需要 security-events: write
