@@ -48,14 +48,14 @@ jobs:
 
       - name: Setup Bun
         if: inputs.project-type == 'bun' && hashFiles('package.json') != ''
-        uses: Yun-Hai-Org/ci-templates/.github/actions/setup-bun@main
+        uses: ./.github/actions/
         with:
           bun-version: ${{ inputs.bun-version }}
           working-directory: ${{ inputs.working-directory }}
 
       - name: Setup Python
         if: inputs.project-type == 'python' && hashFiles('pyproject.toml', 'setup.py', 'requirements.txt') != ''
-        uses: Yun-Hai-Org/ci-templates/.github/actions/setup-python@main
+        uses: ./.github/actions/
         with:
           python-version: ${{ inputs.python-version }}
           working-directory: ${{ inputs.working-directory }}
@@ -94,7 +94,7 @@ jobs:
 
       - name: Setup Rust
         if: inputs.project-type == 'rust' && hashFiles('Cargo.toml') != ''
-        uses: Yun-Hai-Org/ci-templates/.github/actions/setup-rust@main
+        uses: ./.github/actions/
         with:
           rust-version: ${{ inputs.rust-version }}
           working-directory: ${{ inputs.working-directory }}
@@ -117,7 +117,7 @@ jobs:
 
       - name: Setup Node
         if: inputs.project-type == 'node' && hashFiles('package.json') != ''
-        uses: Yun-Hai-Org/ci-templates/.github/actions/setup-node@main
+        uses: ./.github/actions/
         with:
           node-version: ${{ inputs.node-version }}
           package-manager: ${{ inputs.package-manager }}
@@ -196,7 +196,7 @@ jobs:
 
       - name: Setup Bun (for stylelint)
         if: hashFiles('**/*.css') != '' && inputs.project-type == 'bun'
-        uses: Yun-Hai-Org/ci-templates/.github/actions/setup-bun@main
+        uses: ./.github/actions/
         with:
           bun-version: ${{ inputs.bun-version }}
           working-directory: ${{ inputs.working-directory }}

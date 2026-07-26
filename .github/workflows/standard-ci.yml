@@ -240,7 +240,7 @@ jobs:
         env:
           INPUTS: ${{ toJSON(inputs) }}
         run: echo "$INPUTS"
-      - uses: ./.github/actions/notify-wecom
+      - uses: Yun-Hai-Org/ci-templates/.github/actions/notify-wecom@main
         with:
           title: "🚀 CI 开始"
           status: started
@@ -442,7 +442,7 @@ jobs:
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
 
-      - uses: ./.github/actions/notify-wecom
+      - uses: Yun-Hai-Org/ci-templates/.github/actions/notify-wecom@main
         with:
           title: ${{ steps.status.outputs.title }}
           status: ${{ steps.status.outputs.status }}
