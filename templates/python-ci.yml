@@ -16,13 +16,16 @@ on:
 
 jobs:
   ci:
-    uses: Yun-Hai-Org/ci-templates/.github/workflows/standard-ci.yml@v1
+    uses: Yun-Hai-Org/ci-templates/.github/workflows/standard-ci.yml@main
     with:
       project-type: "python"
       python-version: "3.12"
       run-static-analysis: true
       run-security-scan: true
       run-dependency-audit: true
+      run-unit-tests: true
+      run-integration-tests: true
+      run-e2e-tests: true
       fail-on-severity: "high"
       # ===== B+ 类：SonarQube（需 SONAR_TOKEN secret + sonar-organization） =====
       # sonar-organization: "your-sonarcloud-org" # 配置后启用 SonarQube 扫描

@@ -1,0 +1,479 @@
+name: Tests
+
+# 测试执行 workflow：单元测试 / 集成测试 / E2E 测试
+# 被 standard-ci.yml 调用，不直接被业务项目调用。
+# 支持四种 project-type: bun / python / rust / node
+# 严格测试要求：有 manifest 但无测试文件时 CI 失败
+
+on:
+  workflow_call:
+    inputs:
+      project-type:
+        type: string
+        required: true
+        description: "Project type: bun, python, rust, or node"
+      run-unit-tests:
+        type: boolean
+        default: true
+      run-integration-tests:
+        type: boolean
+        default: true
+      run-e2e-tests:
+        type: boolean
+        default: true
+      test-command-bun-unit:
+        type: string
+        default: "bun test"
+      test-command-bun-integration:
+        type: string
+        default: "bun test tests/integration"
+      test-command-python-unit:
+        type: string
+        default: "uv run pytest"
+      test-command-python-integration:
+        type: string
+        default: "uv run pytest tests/integration/"
+      test-command-node-unit:
+        type: string
+        default: "npm test"
+      test-command-node-integration:
+        type: string
+        default: "npm test -- tests/integration"
+      e2e-framework:
+        type: string
+        default: "playwright"
+        description: "playwright or cypress"
+      bun-version:
+        type: string
+        default: latest
+      python-version:
+        type: string
+        default: "3.12"
+      rust-version:
+        type: string
+        default: "stable"
+      node-version:
+        type: string
+        default: "lts/*"
+      package-manager:
+        type: string
+        default: "npm"
+        description: "npm, yarn, or pnpm (node only)"
+      working-directory:
+        type: string
+        default: .
+    secrets:
+      TEST_DATABASE_URL:
+        required: false
+      E2E_TARGET_URL:
+        required: false
+      E2E_AUTH_TOKEN:
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  unit-tests:
+    name: Unit Tests
+    if: ${{ inputs.run-unit-tests == true }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup Bun
+        if: inputs.project-type == 'bun' && hashFiles('package.json') != ''
+        uses: ./.github/actions/setup-bun
+        with:
+          bun-version: ${{ inputs.bun-version }}
+          working-directory: ${{ inputs.working-directory }}
+
+      - name: Setup Python
+        if: inputs.project-type == 'python' && hashFiles('pyproject.toml', 'setup.py', 'requirements.txt') != ''
+        uses: ./.github/actions/setup-python
+        with:
+          python-version: ${{ inputs.python-version }}
+          working-directory: ${{ inputs.working-directory }}
+
+      - name: Setup Rust
+        if: inputs.project-type == 'rust' && hashFiles('Cargo.toml') != ''
+        uses: ./.github/actions/setup-rust
+        with:
+          rust-version: ${{ inputs.rust-version }}
+          working-directory: ${{ inputs.working-directory }}
+
+      - name: Setup Node
+        if: inputs.project-type == 'node' && hashFiles('package.json') != ''
+        uses: ./.github/actions/setup-node
+        with:
+          node-version: ${{ inputs.node-version }}
+          package-manager: ${{ inputs.package-manager }}
+          working-directory: ${{ inputs.working-directory }}
+
+      - name: Install deps (Bun)
+        if: inputs.project-type == 'bun' && hashFiles('package.json') != ''
+        run: bun install --frozen-lockfile
+
+      - name: Install deps (Python)
+        if: inputs.project-type == 'python' && hashFiles('pyproject.toml', 'setup.py', 'requirements.txt') != ''
+        run: uv sync --frozen
+
+      - name: Install deps (Rust)
+        if: inputs.project-type == 'rust' && hashFiles('Cargo.toml') != ''
+        run: cargo fetch
+
+      - name: Install deps (Node)
+        if: inputs.project-type == 'node' && hashFiles('package.json') != ''
+        shell: bash
+        env:
+          PM: ${{ inputs.package-manager }}
+        run: |
+          case "$PM" in
+            npm) npm ci ;;
+            yarn) yarn install --immutable ;;
+            pnpm) pnpm install --frozen-lockfile ;;
+            *) echo "::error::Unknown package-manager: $PM" && exit 1 ;;
+          esac
+
+      - name: Strict test requirement check
+        shell: bash
+        env:
+          PT: ${{ inputs.project-type }}
+        run: |
+          set -euo pipefail
+          HAS_MANIFEST=0
+          HAS_TESTS=0
+          case "$PT" in
+            bun)
+              [ -f package.json ] && HAS_MANIFEST=1
+              { [ -d tests ] || [ -d test ] || [ -d __tests__ ]; } && HAS_TESTS=1
+              git ls-files '*.test.*' '*.spec.*' 2>/dev/null | head -1 | grep -q . && HAS_TESTS=1
+              ;;
+            python)
+              { [ -f pyproject.toml ] || [ -f setup.py ] || [ -f requirements.txt ]; } && HAS_MANIFEST=1
+              git ls-files 'test_*.py' '*_test.py' 'conftest.py' 2>/dev/null | head -1 | grep -q . && HAS_TESTS=1
+              ;;
+            rust)
+              [ -f Cargo.toml ] && HAS_MANIFEST=1
+              { [ -d tests ] && git ls-files 'tests/*.rs' 2>/dev/null | head -1 | grep -q .; } && HAS_TESTS=1
+              grep -rq '#[test]' src/ 2>/dev/null && HAS_TESTS=1
+              ;;
+            node)
+              { [ -f package.json ] && [ ! -f bun.lockb ]; } && HAS_MANIFEST=1
+              { [ -d tests ] || [ -d test ] || [ -d __tests__ ]; } && HAS_TESTS=1
+              git ls-files '*.test.*' '*.spec.*' 2>/dev/null | head -1 | grep -q . && HAS_TESTS=1
+              ;;
+          esac
+          if [ "$HAS_MANIFEST" = "1" ] && [ "$HAS_TESTS" = "0" ]; then
+            echo "::error::manifest exists but no test files found (project-type=$PT)"
+            exit 1
+          fi
+          if [ "$HAS_MANIFEST" = "0" ]; then
+            echo "::notice::no manifest, skipping unit tests"
+          fi
+
+      - name: Run unit tests (Bun)
+        if: inputs.project-type == 'bun' && hashFiles('package.json') != ''
+        run: ${{ inputs.test-command-bun-unit }}
+
+      - name: Run unit tests (Python)
+        if: inputs.project-type == 'python' && hashFiles('pyproject.toml', 'setup.py', 'requirements.txt') != ''
+        run: ${{ inputs.test-command-python-unit }}
+
+      - name: Run unit tests (Rust)
+        if: inputs.project-type == 'rust' && hashFiles('Cargo.toml') != ''
+        run: cargo test --lib
+
+      - name: Run unit tests (Node)
+        if: inputs.project-type == 'node' && hashFiles('package.json') != ''
+        run: ${{ inputs.test-command-node-unit }}
+
+      - name: Skip unit tests (no manifest)
+        if: |
+          (inputs.project-type == 'bun' && hashFiles('package.json') == '') ||
+          (inputs.project-type == 'python' && hashFiles('pyproject.toml', 'setup.py', 'requirements.txt') == '') ||
+          (inputs.project-type == 'rust' && hashFiles('Cargo.toml') == '') ||
+          (inputs.project-type == 'node' && hashFiles('package.json') == '')
+        run: echo "::notice::no manifest, skipping unit tests"
+
+  integration-tests:
+    name: Integration Tests
+    if: ${{ inputs.run-integration-tests == true }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Check integration test directory
+        id: check-integration
+        shell: bash
+        env:
+          PT: ${{ inputs.project-type }}
+        run: |
+          set -euo pipefail
+          if [ -d tests/integration ]; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::no tests/integration/ directory, skipping integration tests"
+          fi
+
+      - name: Setup Bun
+        if: steps.check-integration.outputs.found == 'true' && inputs.project-type == 'bun' && hashFiles('package.json') != ''
+        uses: ./.github/actions/setup-bun
+        with:
+          bun-version: ${{ inputs.bun-version }}
+          working-directory: ${{ inputs.working-directory }}
+
+      - name: Setup Python
+        if: steps.check-integration.outputs.found == 'true' && inputs.project-type == 'python' && hashFiles('pyproject.toml', 'setup.py', 'requirements.txt') != ''
+        uses: ./.github/actions/setup-python
+        with:
+          python-version: ${{ inputs.python-version }}
+          working-directory: ${{ inputs.working-directory }}
+
+      - name: Setup Rust
+        if: steps.check-integration.outputs.found == 'true' && inputs.project-type == 'rust' && hashFiles('Cargo.toml') != ''
+        uses: ./.github/actions/setup-rust
+        with:
+          rust-version: ${{ inputs.rust-version }}
+          working-directory: ${{ inputs.working-directory }}
+
+      - name: Setup Node
+        if: steps.check-integration.outputs.found == 'true' && inputs.project-type == 'node' && hashFiles('package.json') != ''
+        uses: ./.github/actions/setup-node
+        with:
+          node-version: ${{ inputs.node-version }}
+          package-manager: ${{ inputs.package-manager }}
+          working-directory: ${{ inputs.working-directory }}
+
+      - name: Install deps (Bun)
+        if: steps.check-integration.outputs.found == 'true' && inputs.project-type == 'bun' && hashFiles('package.json') != ''
+        run: bun install --frozen-lockfile
+
+      - name: Install deps (Python)
+        if: steps.check-integration.outputs.found == 'true' && inputs.project-type == 'python' && hashFiles('pyproject.toml', 'setup.py', 'requirements.txt') != ''
+        run: uv sync --frozen
+
+      - name: Install deps (Rust)
+        if: steps.check-integration.outputs.found == 'true' && inputs.project-type == 'rust' && hashFiles('Cargo.toml') != ''
+        run: cargo fetch
+
+      - name: Install deps (Node)
+        if: steps.check-integration.outputs.found == 'true' && inputs.project-type == 'node' && hashFiles('package.json') != ''
+        shell: bash
+        env:
+          PM: ${{ inputs.package-manager }}
+        run: |
+          case "$PM" in
+            npm) npm ci ;;
+            yarn) yarn install --immutable ;;
+            pnpm) pnpm install --frozen-lockfile ;;
+            *) echo "::error::Unknown package-manager: $PM" && exit 1 ;;
+          esac
+
+      - name: Run integration tests (Bun)
+        if: steps.check-integration.outputs.found == 'true' && inputs.project-type == 'bun' && hashFiles('package.json') != ''
+        env:
+          TEST_DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
+        run: |
+          if [ -z "$TEST_DATABASE_URL" ]; then
+            echo "::warning::TEST_DATABASE_URL not set, skipping integration tests"
+            exit 0
+          fi
+          ${{ inputs.test-command-bun-integration }}
+
+      - name: Run integration tests (Python)
+        if: steps.check-integration.outputs.found == 'true' && inputs.project-type == 'python' && hashFiles('pyproject.toml', 'setup.py', 'requirements.txt') != ''
+        env:
+          TEST_DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
+        run: |
+          if [ -z "$TEST_DATABASE_URL" ]; then
+            echo "::warning::TEST_DATABASE_URL not set, skipping integration tests"
+            exit 0
+          fi
+          ${{ inputs.test-command-python-integration }}
+
+      - name: Run integration tests (Rust)
+        if: steps.check-integration.outputs.found == 'true' && inputs.project-type == 'rust' && hashFiles('Cargo.toml') != ''
+        env:
+          TEST_DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
+        run: |
+          if [ -z "$TEST_DATABASE_URL" ]; then
+            echo "::warning::TEST_DATABASE_URL not set, skipping integration tests"
+            exit 0
+          fi
+          cargo test --test '*'
+
+      - name: Run integration tests (Node)
+        if: steps.check-integration.outputs.found == 'true' && inputs.project-type == 'node' && hashFiles('package.json') != ''
+        env:
+          TEST_DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
+        run: |
+          if [ -z "$TEST_DATABASE_URL" ]; then
+            echo "::warning::TEST_DATABASE_URL not set, skipping integration tests"
+            exit 0
+          fi
+          ${{ inputs.test-command-node-integration }}
+
+      - name: Skip integration tests (no directory)
+        if: steps.check-integration.outputs.found == 'false'
+        run: echo "::notice::no tests/integration/ directory, skipping integration tests"
+
+  e2e-tests:
+    name: E2E Tests
+    if: ${{ inputs.run-e2e-tests == true }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Check E2E config
+        id: check-e2e
+        shell: bash
+        run: |
+          set -euo pipefail
+          FOUND=false
+          for f in playwright.config.ts playwright.config.js cypress.config.ts cypress.config.js; do
+            [ -f "$f" ] && FOUND=true && break
+          done
+          [ -d tests/e2e ] && FOUND=true
+          if [ "$FOUND" = "true" ]; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::no E2E config (playwright.config.ts / cypress.config.ts / tests/e2e/), skipping E2E tests"
+          fi
+
+      - name: Setup Bun
+        if: ${{ steps.check-e2e.outputs.found == 'true' && inputs.project-type == 'bun' && hashFiles('package.json') != '' }}
+        uses: ./.github/actions/setup-bun
+        with:
+          bun-version: ${{ inputs.bun-version }}
+          working-directory: ${{ inputs.working-directory }}
+
+      - name: Setup Python
+        if: ${{ steps.check-e2e.outputs.found == 'true' && inputs.project-type == 'python' && hashFiles('pyproject.toml', 'setup.py', 'requirements.txt') != '' }}
+        uses: ./.github/actions/setup-python
+        with:
+          python-version: ${{ inputs.python-version }}
+          working-directory: ${{ inputs.working-directory }}
+
+      - name: Setup Node
+        if: ${{ steps.check-e2e.outputs.found == 'true' && inputs.project-type == 'node' && hashFiles('package.json') != '' }}
+        uses: ./.github/actions/setup-node
+        with:
+          node-version: ${{ inputs.node-version }}
+          package-manager: ${{ inputs.package-manager }}
+          working-directory: ${{ inputs.working-directory }}
+
+      - name: Install deps (Bun)
+        if: ${{ steps.check-e2e.outputs.found == 'true' && inputs.project-type == 'bun' && hashFiles('package.json') != '' }}
+        run: bun install --frozen-lockfile
+
+      - name: Install deps (Python)
+        if: ${{ steps.check-e2e.outputs.found == 'true' && inputs.project-type == 'python' && hashFiles('pyproject.toml', 'setup.py', 'requirements.txt') != '' }}
+        run: uv sync --frozen
+
+      - name: Install deps (Node)
+        if: ${{ steps.check-e2e.outputs.found == 'true' && inputs.project-type == 'node' && hashFiles('package.json') != '' }}
+        shell: bash
+        env:
+          PM: ${{ inputs.package-manager }}
+        run: |
+          case "$PM" in
+            npm) npm ci ;;
+            yarn) yarn install --immutable ;;
+            pnpm) pnpm install --frozen-lockfile ;;
+            *) echo "::error::Unknown package-manager: $PM" && exit 1 ;;
+          esac
+
+      - name: Install Playwright browsers
+        if: ${{ steps.check-e2e.outputs.found == 'true' && inputs.e2e-framework == 'playwright' && (inputs.project-type == 'bun' || inputs.project-type == 'node') }}
+        shell: bash
+        run: |
+          if [ "${{ inputs.project-type }}" = "bun" ]; then
+            bunx playwright install --with-deps chromium
+          else
+            npx playwright install --with-deps chromium
+          fi
+
+      - name: Run E2E tests (Bun/Playwright)
+        if: ${{ steps.check-e2e.outputs.found == 'true' && inputs.project-type == 'bun' && inputs.e2e-framework == 'playwright' }}
+        env:
+          E2E_TARGET_URL: ${{ secrets.E2E_TARGET_URL }}
+          E2E_AUTH_TOKEN: ${{ secrets.E2E_AUTH_TOKEN }}
+          TEST_DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
+        run: |
+          if [ -z "$E2E_TARGET_URL" ]; then
+            echo "::warning::E2E_TARGET_URL not set, skipping E2E tests"
+            exit 0
+          fi
+          bunx playwright test
+
+      - name: Run E2E tests (Bun/Cypress)
+        if: ${{ steps.check-e2e.outputs.found == 'true' && inputs.project-type == 'bun' && inputs.e2e-framework == 'cypress' }}
+        env:
+          E2E_TARGET_URL: ${{ secrets.E2E_TARGET_URL }}
+          E2E_AUTH_TOKEN: ${{ secrets.E2E_AUTH_TOKEN }}
+          TEST_DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
+        run: |
+          if [ -z "$E2E_TARGET_URL" ]; then
+            echo "::warning::E2E_TARGET_URL not set, skipping E2E tests"
+            exit 0
+          fi
+          bunx cypress run
+
+      - name: Run E2E tests (Python)
+        if: ${{ steps.check-e2e.outputs.found == 'true' && inputs.project-type == 'python' }}
+        env:
+          E2E_TARGET_URL: ${{ secrets.E2E_TARGET_URL }}
+          E2E_AUTH_TOKEN: ${{ secrets.E2E_AUTH_TOKEN }}
+          TEST_DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
+        run: |
+          if [ -z "$E2E_TARGET_URL" ]; then
+            echo "::warning::E2E_TARGET_URL not set, skipping E2E tests"
+            exit 0
+          fi
+          uv run pytest tests/e2e/
+
+      - name: Run E2E tests (Node/Playwright)
+        if: ${{ steps.check-e2e.outputs.found == 'true' && inputs.project-type == 'node' && inputs.e2e-framework == 'playwright' }}
+        env:
+          E2E_TARGET_URL: ${{ secrets.E2E_TARGET_URL }}
+          E2E_AUTH_TOKEN: ${{ secrets.E2E_AUTH_TOKEN }}
+          TEST_DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
+        run: |
+          if [ -z "$E2E_TARGET_URL" ]; then
+            echo "::warning::E2E_TARGET_URL not set, skipping E2E tests"
+            exit 0
+          fi
+          npx playwright test
+
+      - name: Run E2E tests (Node/Cypress)
+        if: ${{ steps.check-e2e.outputs.found == 'true' && inputs.project-type == 'node' && inputs.e2e-framework == 'cypress' }}
+        env:
+          E2E_TARGET_URL: ${{ secrets.E2E_TARGET_URL }}
+          E2E_AUTH_TOKEN: ${{ secrets.E2E_AUTH_TOKEN }}
+          TEST_DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
+        run: |
+          if [ -z "$E2E_TARGET_URL" ]; then
+            echo "::warning::E2E_TARGET_URL not set, skipping E2E tests"
+            exit 0
+          fi
+          npx cypress run
+
+      - name: Skip E2E (Rust)
+        if: ${{ steps.check-e2e.outputs.found == 'true' && inputs.project-type == 'rust' }}
+        run: echo "::notice::Rust E2E not supported via this workflow; use load-test workflow for Rust service E2E."
+
+      - name: Skip E2E (no config)
+        if: ${{ steps.check-e2e.outputs.found == 'false' }}
+        run: echo "::notice::no E2E config found, skipping E2E tests"

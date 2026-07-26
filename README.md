@@ -7,7 +7,7 @@
 ```
 业务项目 .github/workflows/ci.yml
   │
-  │  uses: Yun-Hai-Org/ci-templates/.github/workflows/standard-ci.yml@v1
+  │  uses: Yun-Hai-Org/ci-templates/.github/workflows/standard-ci.yml@main
   │  with: { project-type: 'bun', ... }
   │  secrets: { WECOM_BOT_KEY: ..., SEMGREP_APP_TOKEN: ... }
   ▼
@@ -42,6 +42,7 @@
 | **C**  | 依赖审计         | ✅ 开                   | bun audit / pip-audit / lockfile-freshness                        |
 | **D**  | 上线前卡点       | ✅ 开（无文件自动跳过） | OPA test / Semgrep 自定义 / 敏感数据 / Jira / Schema / commitlint |
 | **E**  | 上线后验证       | ✅ 开（无文件自动跳过） | promptfoo AI 内容 / k6 压测 / pgbench DB 基准                     |
+| **T**  | 测试执行         | ✅ 开（严格模式）       | bun test / pytest / cargo test / npm test + 集成 + E2E            |
 | **F**  | 流程卡点         | 📋 模板                 | PR 模板 / release checklist / 本地钩子（复制即用）                |
 | —      | 企业微信通知     | ✅ 开                   | CI 开始/结束发 markdown 到群机器人                                |
 
@@ -116,7 +117,6 @@ secrets: inherit # 含 SONAR_TOKEN
 | Semgrep 自定义 | AI 代码 / 敏感数据 / Jira 注释   | `.semgrep/` 存在          | 否       |
 | Jira ID 校验   | PR 标题 + commit 含工单 ID       | PR 事件                   | 否       |
 | Schema 校验    | Agent 配置 JSON Schema           | `schema-check-paths` 非空 | 否       |
-| 测试集校验     | `tests/` 存在且被 Git 跟踪       | 始终                      | 否       |
 | commitlint     | Conventional Commits + Jira 规则 | PR 事件                   | 否       |
 
 **启用/关闭**：`run-release-gates: true`；Jira 前缀用 `jira-prefix: 'PROJ'`；过渡期用 `jira-warning-only: true`（失败仅 warning）。
@@ -243,6 +243,9 @@ with:
   run-static-analysis: true # A 类（默认开）
   run-security-scan: true # B + B+ 类（默认开）
   run-dependency-audit: true # C 类（默认开）
+  run-unit-tests: true # T 类（默认开，严格模式：有代码无测试即 fail）
+  run-integration-tests: true # T 类（默认开，无 tests/integration/ 跳过）
+  run-e2e-tests: true # T 类（默认开，无 E2E 配置跳过）
   run-release-gates: true # D 类（默认开，无文件自动跳过）
   run-ai-content-test: true # E 类（默认开，无配置自动跳过）
   run-load-test: true # E 类（默认开，无脚本自动跳过）
@@ -290,7 +293,7 @@ secrets:
 ```yaml
 jobs:
   ci:
-    uses: Yun-Hai-Org/ci-templates/.github/workflows/standard-ci.yml@v1
+    uses: Yun-Hai-Org/ci-templates/.github/workflows/standard-ci.yml@main
     with:
       project-type: 'bun'
     secrets: inherit
@@ -332,7 +335,7 @@ on:
   workflow_dispatch:
 jobs:
   ci:
-    uses: Yun-Hai-Org/ci-templates/.github/workflows/standard-ci.yml@v1
+    uses: Yun-Hai-Org/ci-templates/.github/workflows/standard-ci.yml@main
     with:
       project-type: 'bun'
       run-release-gates: true # E 类依赖 D 类通过
@@ -362,7 +365,7 @@ jobs:
 
 ### 方案 B：仓库内 ci.yml（默认，当前采用）
 
-在业务仓库放一个 `.github/workflows/ci.yml`，`uses:` 指向本仓库的 `standard-ci.yml@v1`。适合任何 GitHub 版本，公开/私有仓库均可，无版本限制。
+在业务仓库放一个 `.github/workflows/ci.yml`，`uses:` 指向本仓库的 `standard-ci.yml@main`。适合任何 GitHub 版本，公开/私有仓库均可，无版本限制。
 
 ```yaml
 # 业务项目 .github/workflows/ci.yml
@@ -373,7 +376,7 @@ on:
     branches: [main]
 jobs:
   ci:
-    uses: Yun-Hai-Org/ci-templates/.github/workflows/standard-ci.yml@v1
+    uses: Yun-Hai-Org/ci-templates/.github/workflows/standard-ci.yml@main
     with:
       project-type: 'bun' # 或 'python'
       wecom-notify: true
@@ -382,7 +385,7 @@ jobs:
 ```
 
 **优点**：零版本门槛、配置可见可调试、开发者可在 with 下自行调整开关。
-**缺点**：每个业务仓库都要放一份 ci.yml，升级时各仓库需自行同步（指向 `@v1` 可自动跟进 minor 补丁）。
+**缺点**：每个业务仓库都要放一份 ci.yml；指向 `@main` 时所有调用方自动跟 main 最新，main 上的不稳定改动会立即影响所有业务仓库。
 
 ### 方案 A：Repository Ruleset 全局强制（升级路径，后续采用）
 
@@ -427,7 +430,7 @@ on:
     branches: [main]
 jobs:
   ci:
-    uses: Yun-Hai-Org/ci-templates/.github/workflows/standard-ci.yml@v1
+    uses: Yun-Hai-Org/ci-templates/.github/workflows/standard-ci.yml@main
     with:
       project-type: 'bun' # 或 'python'
       wecom-notify: true
@@ -445,10 +448,12 @@ jobs:
 
 ## Project Types
 
-| project-type | 适用场景                    | type-check       | lint         | format                | knip | dep-audit   | lockfile                        |
-| ------------ | --------------------------- | ---------------- | ------------ | --------------------- | ---- | ----------- | ------------------------------- |
-| `bun`        | JS/TS 项目（含 MCP Server） | `bunx tsc`       | `eslint`     | `prettier`            | ✅   | `bun audit` | `bun install --frozen-lockfile` |
-| `python`     | Python 项目                 | `uv run pyright` | `ruff check` | `ruff format --check` | —    | `pip-audit` | `uv sync --frozen`              |
+| project-type | 适用场景                      | type-check       | lint           | format                 | knip | dep-audit     | lockfile                        |
+| ------------ | ----------------------------- | ---------------- | -------------- | ---------------------- | ---- | ------------- | ------------------------------- |
+| `bun`        | JS/TS 项目（含 MCP Server）   | `bunx tsc`       | `eslint`       | `prettier`             | ✅   | `bun audit`   | `bun install --frozen-lockfile` |
+| `python`     | Python 项目                   | `uv run pyright` | `ruff check`   | `ruff format --check`  | —    | `pip-audit`   | `uv sync --frozen`              |
+| `rust`       | Rust 项目                     | `cargo check`    | `cargo clippy` | `cargo fmt --check`    | —    | `cargo-audit` | `cargo update --dry-run`        |
+| `node`       | Node.js 项目（npm/yarn/pnpm） | `npx tsc`        | `npx eslint`   | `npx prettier --check` | —    | `npm audit`   | `npm ci`                        |
 
 所有 project-type 默认跑 B 类安全扫描。
 
@@ -456,30 +461,33 @@ jobs:
 
 完整列表见 [docs/inputs-reference.md](docs/inputs-reference.md)。常用：
 
-| input                  | 默认    | 说明                                             |
-| ---------------------- | ------- | ------------------------------------------------ |
-| `project-type`         | `bun`   | `bun` / `python`                                 |
-| `run-static-analysis`  | `true`  | A 类总开关                                       |
-| `run-security-scan`    | `true`  | B + B+ 类总开关                                  |
-| `run-dependency-audit` | `true`  | C 类总开关                                       |
-| `run-extended-lint`    | `false` | hadolint / shellcheck / stylelint / sqlfluff     |
-| `fail-on-severity`     | `high`  | `none`/`low`/`medium`/`high`/`critical`          |
-| `run-release-gates`    | `false` | D 类上线卡点（OPA / Jira / Schema / commitlint） |
-| `run-ai-content-test`  | `false` | E 类 promptfoo AI 内容安全                       |
-| `run-load-test`        | `false` | E 类 k6 / Locust 压测                            |
-| `run-db-benchmark`     | `false` | E 类 pgbench DB 基准                             |
-| `jira-prefix`          | `""`    | Jira 项目前缀（如 `PROJ`）                       |
-| `wecom-notify`         | `true`  | 是否发送企业微信通知                             |
+| input                   | 默认    | 说明                                                      |
+| ----------------------- | ------- | --------------------------------------------------------- |
+| `project-type`          | `bun`   | `bun` / `python`                                          |
+| `run-static-analysis`   | `true`  | A 类总开关                                                |
+| `run-security-scan`     | `true`  | B + B+ 类总开关                                           |
+| `run-dependency-audit`  | `true`  | C 类总开关                                                |
+| `run-extended-lint`     | `false` | hadolint / shellcheck / stylelint / sqlfluff              |
+| `run-unit-tests`        | `true`  | T 类单元测试（bun test / pytest / cargo test / npm test） |
+| `run-integration-tests` | `true`  | T 类集成测试（无 tests/integration/ 跳过）                |
+| `run-e2e-tests`         | `true`  | T 类 E2E 测试（Playwright/Cypress）                       |
+| `fail-on-severity`      | `high`  | `none`/`low`/`medium`/`high`/`critical`                   |
+| `run-release-gates`     | `false` | D 类上线卡点（OPA / Jira / Schema / commitlint）          |
+| `run-ai-content-test`   | `false` | E 类 promptfoo AI 内容安全                                |
+| `run-load-test`         | `false` | E 类 k6 / Locust 压测                                     |
+| `run-db-benchmark`      | `false` | E 类 pgbench DB 基准                                      |
+| `jira-prefix`           | `""`    | Jira 项目前缀（如 `PROJ`）                                |
+| `wecom-notify`          | `true`  | 是否发送企业微信通知                                      |
 
 ## 版本管理
 
-业务项目统一使用 `@v1`（moving tag，自动获得 minor 补丁）：
+业务项目和内部子调用统一使用 `@main`：workflow 改动合入 main 即时对所有调用方生效，无需维护 tag。
 
 ```yaml
-uses: Yun-Hai-Org/ci-templates/.github/workflows/standard-ci.yml@v1
+uses: Yun-Hai-Org/ci-templates/.github/workflows/standard-ci.yml@main
 ```
 
-稳定性要求高的项目可锁精确版本 `@v1.1.0`。**不要用 `@main`**。
+**Trade-off**：main 上的不稳定改动会立即影响所有调用方。缓解措施：PR 合入前必须通过 smoke-test（main push 触发，端到端验证 standard-ci.yml 编排链路）；改子 workflow 的 input schema 时必须同步修改 standard-ci.yml 调用处，code-review 重点检查。
 
 ## 文档
 
@@ -493,6 +501,7 @@ uses: Yun-Hai-Org/ci-templates/.github/workflows/standard-ci.yml@v1
 - [AI 内容安全测试](docs/ai-content-testing.md)
 - [压测配置](docs/load-testing.md)
 - [DB 基准测试](docs/db-benchmark.md)
+- [测试执行详解](docs/tests.md)
 - [commitlint + husky 本地钩子](docs/commitlint-husky.md)
 - [外部安全服务](docs/external-security-tools.md)
 - [PR 模板与发布 Checklist](docs/pr-checklist.md)

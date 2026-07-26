@@ -36,7 +36,23 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      - name: Check database files
+        id: check-db
+        shell: bash
+        run: |
+          if [ -d "db" ] || [ -d "migrations" ] || [ -d "sql" ] || [ -d "prisma" ] || \
+             [ -f "docker-compose.yml" ] || [ -f "docker-compose.yaml" ] || \
+             [ -f "schema.sql" ] || \
+             ls tests/db/*.sql 2>/dev/null | head -1 | grep -q .; then
+            echo "has_db=true" >> "$GITHUB_OUTPUT"
+            echo "Found database-related files, running pgbench benchmark"
+          else
+            echo "has_db=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::No database-related files found, skipping DB benchmark"
+          fi
+
       - name: Start PostgreSQL container
+        if: steps.check-db.outputs.has_db == 'true'
         shell: bash
         env:
           PG_VERSION: ${{ inputs.pg-version }}
@@ -64,6 +80,7 @@ jobs:
           fi
 
       - name: Initialize pgbench
+        if: steps.check-db.outputs.has_db == 'true'
         shell: bash
         env:
           SCALE: ${{ inputs.scale-factor }}
@@ -75,6 +92,7 @@ jobs:
 
       - name: Run pgbench
         id: bench
+        if: steps.check-db.outputs.has_db == 'true'
         shell: bash
         env:
           CLIENTS: ${{ inputs.clients }}
@@ -89,6 +107,7 @@ jobs:
           echo "测得 TPS: $TPS"
 
       - name: Check TPS threshold
+        if: steps.check-db.outputs.has_db == 'true'
         env:
           TPS: ${{ steps.bench.outputs.tps }}
           THRESHOLD: ${{ inputs.report-threshold-tps }}

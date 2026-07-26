@@ -190,25 +190,7 @@ jobs:
         run: echo "::notice::schema-check-paths 为空，跳过 Agent 配置 Schema 校验。"
 
       # ============================================================
-      # 5. 测试集目录校验（tests/ 存在 + 非 Git ignore）
-      # ============================================================
-      - name: Test directory check
-        run: |
-          set -euo pipefail
-          if [ ! -d tests ] && [ ! -d test ] && [ ! -d __tests__ ]; then
-            echo "::warning::未发现 tests/ / test/ / __tests__/ 目录。建议业务仓库提交测试用例并纳入 Git 管理。"
-            exit 0
-          fi
-          # 检查 tests 目录是否被 Git 跟踪
-          TRACKED=$(git ls-files tests test __tests__ 2>/dev/null | head -1)
-          if [ -z "$TRACKED" ]; then
-            echo "::error::测试目录存在但未被 Git 跟踪。请将测试用例提交到 Git。"
-            exit 1
-          fi
-          echo "✓ 测试集已纳入 Git 管理: $TRACKED ..."
-
-      # ============================================================
-      # 6. commitlint —— Conventional Commits + Jira 规则（CI 层）
+      # 5. commitlint —— Conventional Commits + Jira 规则（CI 层）
       # ============================================================
       - name: Setup commitlint
         if: github.event_name == 'pull_request'
