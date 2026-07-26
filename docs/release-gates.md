@@ -12,7 +12,6 @@ D 类卡点在 `release-gates.yml` 中实现，由 `standard-ci.yml` 的 `run-re
 | Semgrep 自定义规则 | `semgrep --config .semgrep/` | `.semgrep/*.yml` 存在     | WARNING 以上 error                                |
 | Jira ID 校验       | shell + grep                 | PR 事件                   | 失败 error（`jira-warning-only=true` 时 warning） |
 | Schema 校验        | `ajv`                        | `schema-check-paths` 非空 | 校验失败 error                                    |
-| 测试集校验         | shell                        | 始终                      | 测试目录未被 Git 跟踪则 error                     |
 | commitlint         | `commitlint`                 | PR 事件                   | 非 Conventional Commits 格式 error                |
 
 ## OPA 策略
@@ -105,12 +104,6 @@ with:
 ```
 
 业务仓库可参考 `templates/agent-config.schema.json` 编写自己的 Schema，或直接复用。
-
-## 测试集校验
-
-确保 `tests/` / `test/` / `__tests__/` 目录存在且被 Git 跟踪。
-
-未发现目录时仅 warning（不阻断）；目录存在但未被 Git 跟踪时 error。
 
 ## commitlint
 

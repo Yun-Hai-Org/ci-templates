@@ -115,6 +115,9 @@ jobs:
       run-security-scan: true
       run-knip: true
       run-dependency-audit: true
+      run-unit-tests: true
+      run-integration-tests: true
+      run-e2e-tests: true
       run-extended-lint: true
       run-release-gates: true
       run-ai-content-test: true

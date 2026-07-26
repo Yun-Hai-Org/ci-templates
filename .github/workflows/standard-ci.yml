@@ -34,6 +34,59 @@ on:
         type: boolean
         default: false
         description: "Run OSV scanner (slow, for scheduled runs)"
+      # ===== 测试执行 =====
+      run-unit-tests:
+        type: boolean
+        default: true
+        description: "Run unit tests (bun test / pytest / cargo test / npm test)"
+      run-integration-tests:
+        type: boolean
+        default: true
+        description: "Run integration tests (gated by tests/integration/ existence)"
+      run-e2e-tests:
+        type: boolean
+        default: true
+        description: "Run E2E tests (Playwright/Cypress, gated by config existence)"
+      test-command-bun-unit:
+        type: string
+        default: "bun test"
+        description: "Bun unit test command"
+      test-command-bun-integration:
+        type: string
+        default: "bun test tests/integration"
+        description: "Bun integration test command"
+      test-command-python-unit:
+        type: string
+        default: "uv run pytest"
+        description: "Python unit test command"
+      test-command-python-integration:
+        type: string
+        default: "uv run pytest tests/integration/"
+        description: "Python integration test command"
+      test-command-node-unit:
+        type: string
+        default: "npm test"
+        description: "Node unit test command"
+      test-command-node-integration:
+        type: string
+        default: "npm test -- tests/integration"
+        description: "Node integration test command"
+      e2e-framework:
+        type: string
+        default: "playwright"
+        description: "E2E framework: playwright or cypress"
+      rust-version:
+        type: string
+        default: "stable"
+        description: "Rust toolchain version"
+      node-version:
+        type: string
+        default: "lts/*"
+        description: "Node.js version"
+      package-manager:
+        type: string
+        default: "npm"
+        description: "Package manager: npm, yarn, or pnpm (node only)"
       fail-on-severity:
         type: string
         default: high
@@ -83,11 +136,11 @@ on:
         description: "Run promptfoo AI content safety test"
       run-load-test:
         type: boolean
-        default: false
+        default: true
         description: "Run k6 / Locust load test"
       run-db-benchmark:
         type: boolean
-        default: false
+        default: true
         description: "Run pgbench DB benchmark"
       promptfoo-test-path:
         type: string
@@ -160,6 +213,13 @@ on:
         required: false
       ANTHROPIC_API_KEY:
         required: false
+      # ===== 测试执行 =====
+      TEST_DATABASE_URL:
+        required: false
+      E2E_TARGET_URL:
+        required: false
+      E2E_AUTH_TOKEN:
+        required: false
 
 # 嵌套调用 security-scans.yml / release-gates.yml 的 upload-sarif 需要
 # security-events: write；调用方（业务仓库 ci.yml 或 smoke-test.yml）需显式授予
@@ -194,6 +254,7 @@ jobs:
             🤖 AI 内容　${{ inputs.run-ai-content-test }}
             ⚡ 压测　　　${{ inputs.run-load-test }}
             🗄️ DB 基准　${{ inputs.run-db-benchmark }}
+            🧪 测试　　　${{ inputs.run-unit-tests }}
 
   lint:
     name: Lint & Format
@@ -230,6 +291,30 @@ jobs:
       fail-on-severity: ${{ inputs.fail-on-severity }}
       bun-version: ${{ inputs.bun-version }}
       python-version: ${{ inputs.python-version }}
+      working-directory: ${{ inputs.working-directory }}
+    secrets: inherit
+
+  tests:
+    name: Tests
+    if: ${{ inputs.run-unit-tests == true || inputs.run-integration-tests == true || inputs.run-e2e-tests == true }}
+    uses: Yun-Hai-Org/ci-templates/.github/workflows/tests.yml@main
+    with:
+      project-type: ${{ inputs.project-type }}
+      run-unit-tests: ${{ inputs.run-unit-tests }}
+      run-integration-tests: ${{ inputs.run-integration-tests }}
+      run-e2e-tests: ${{ inputs.run-e2e-tests }}
+      test-command-bun-unit: ${{ inputs.test-command-bun-unit }}
+      test-command-bun-integration: ${{ inputs.test-command-bun-integration }}
+      test-command-python-unit: ${{ inputs.test-command-python-unit }}
+      test-command-python-integration: ${{ inputs.test-command-python-integration }}
+      test-command-node-unit: ${{ inputs.test-command-node-unit }}
+      test-command-node-integration: ${{ inputs.test-command-node-integration }}
+      e2e-framework: ${{ inputs.e2e-framework }}
+      bun-version: ${{ inputs.bun-version }}
+      python-version: ${{ inputs.python-version }}
+      rust-version: ${{ inputs.rust-version }}
+      node-version: ${{ inputs.node-version }}
+      package-manager: ${{ inputs.package-manager }}
       working-directory: ${{ inputs.working-directory }}
     secrets: inherit
 
@@ -285,7 +370,7 @@ jobs:
 
   notify-end:
     name: Notify CI End (WeCom)
-    needs: [lint, security, dependency, release-gates, ai-content, load-test, db-benchmark]
+    needs: [lint, security, dependency, tests, release-gates, ai-content, load-test, db-benchmark]
     if: ${{ always() && inputs.wecom-notify == true }}
     runs-on: ubuntu-latest
     env:
@@ -302,6 +387,7 @@ jobs:
           AI="${{ needs.ai-content.result || 'skipped' }}"
           LOAD="${{ needs.load-test.result || 'skipped' }}"
           DB="${{ needs.db-benchmark.result || 'skipped' }}"
+          TESTS="${{ needs.tests.result || 'skipped' }}"
 
           # result 转 emoji + 中文
           result_icon() {
@@ -321,6 +407,7 @@ jobs:
           [ "$AI" = "failure" ] && FAIL=1
           [ "$LOAD" = "failure" ] && FAIL=1
           [ "$DB" = "failure" ] && FAIL=1
+          [ "$TESTS" = "failure" ] && FAIL=1
 
           LINT_ICON=$(result_icon "$LINT")
           SEC_ICON=$(result_icon "$SEC")
@@ -329,6 +416,7 @@ jobs:
           AI_ICON=$(result_icon "$AI")
           LOAD_ICON=$(result_icon "$LOAD")
           DB_ICON=$(result_icon "$DB")
+          TESTS_ICON=$(result_icon "$TESTS")
 
           if [ "$FAIL" = "1" ]; then
             echo "title=❌ CI 失败" >> "$GITHUB_OUTPUT"
@@ -350,6 +438,7 @@ jobs:
             echo "🤖 AI 内容　${AI_ICON}"
             echo "⚡ 压测　　　${LOAD_ICON}"
             echo "🗄️ DB 基准　${DB_ICON}"
+            echo "🧪 测试　　　${TESTS_ICON}"
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
 

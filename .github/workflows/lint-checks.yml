@@ -20,6 +20,18 @@ on:
       python-version:
         type: string
         default: "3.12"
+      rust-version:
+        type: string
+        default: "stable"
+        description: "Rust toolchain version"
+      node-version:
+        type: string
+        default: "lts/*"
+        description: "Node.js version"
+      package-manager:
+        type: string
+        default: "npm"
+        description: "Package manager: npm, yarn, or pnpm (node only)"
       working-directory:
         type: string
         default: .
@@ -80,16 +92,76 @@ jobs:
         if: inputs.project-type == 'python' && hashFiles('pyproject.toml', 'setup.py', 'requirements.txt') != ''
         run: uv run ruff format --check .
 
-      - name: Skip static analysis (no manifest)
-        if: (inputs.project-type == 'bun' && hashFiles('package.json') == '') || (inputs.project-type == 'python' && hashFiles('pyproject.toml', 'setup.py', 'requirements.txt') == '')
+      - name: Setup Rust
+        if: inputs.project-type == 'rust' && hashFiles('Cargo.toml') != ''
+        uses: Yun-Hai-Org/ci-templates/.github/actions/setup-rust@main
+        with:
+          rust-version: ${{ inputs.rust-version }}
+          working-directory: ${{ inputs.working-directory }}
+
+      - name: Install deps (Rust)
+        if: inputs.project-type == 'rust' && hashFiles('Cargo.toml') != ''
+        run: cargo fetch
+
+      - name: Type check (Rust)
+        if: inputs.project-type == 'rust' && hashFiles('Cargo.toml') != ''
+        run: cargo check --all-targets
+
+      - name: Lint (Rust)
+        if: inputs.project-type == 'rust' && hashFiles('Cargo.toml') != ''
+        run: cargo clippy --all-targets -- -D warnings
+
+      - name: Format check (Rust)
+        if: inputs.project-type == 'rust' && hashFiles('Cargo.toml') != ''
+        run: cargo fmt --check
+
+      - name: Setup Node
+        if: inputs.project-type == 'node' && hashFiles('package.json') != ''
+        uses: Yun-Hai-Org/ci-templates/.github/actions/setup-node@main
+        with:
+          node-version: ${{ inputs.node-version }}
+          package-manager: ${{ inputs.package-manager }}
+          working-directory: ${{ inputs.working-directory }}
+
+      - name: Install deps (Node)
+        if: inputs.project-type == 'node' && hashFiles('package.json') != ''
+        shell: bash
+        env:
+          PM: ${{ inputs.package-manager }}
         run: |
-          if [ "${{ inputs.project-type }}" = "bun" ]; then
-            echo "::notice::未发现 package.json，跳过 bun tsc/eslint/prettier"
-            echo "::notice::模板仓库或非 JS 项目时正常，业务仓库有 package.json 时自动启用"
-          else
-            echo "::notice::未发现 pyproject.toml/setup.py/requirements.txt，跳过 pyright/ruff"
-            echo "::notice::业务仓库有 Python manifest 文件时自动启用"
-          fi
+          case "$PM" in
+            npm) npm ci ;;
+            yarn) yarn install --immutable ;;
+            pnpm) pnpm install --frozen-lockfile ;;
+            *) echo "::error::Unknown package-manager: $PM" && exit 1 ;;
+          esac
+
+      - name: Type check (Node)
+        if: inputs.project-type == 'node' && hashFiles('package.json') != ''
+        run: npx tsc --noEmit
+
+      - name: Lint (Node)
+        if: inputs.project-type == 'node' && hashFiles('package.json') != ''
+        run: npx eslint --max-warnings 0 .
+
+      - name: Format check (Node)
+        if: inputs.project-type == 'node' && hashFiles('package.json') != ''
+        run: npx prettier --check .
+
+      - name: Skip static analysis (no manifest)
+        if: |
+          (inputs.project-type == 'bun' && hashFiles('package.json') == '') ||
+          (inputs.project-type == 'python' && hashFiles('pyproject.toml', 'setup.py', 'requirements.txt') == '') ||
+          (inputs.project-type == 'rust' && hashFiles('Cargo.toml') == '') ||
+          (inputs.project-type == 'node' && hashFiles('package.json') == '')
+        run: |
+          PT="${{ inputs.project-type }}"
+          case "$PT" in
+            bun)  echo "::notice::no package.json, skipping bun tsc/eslint/prettier" ;;
+            python) echo "::notice::no pyproject.toml/setup.py/requirements.txt, skipping pyright/ruff" ;;
+            rust)  echo "::notice::no Cargo.toml, skipping cargo check/clippy/fmt" ;;
+            node)  echo "::notice::no package.json, skipping npx tsc/eslint/prettier" ;;
+          esac
 
   extended-lint:
     name: Extended Lint

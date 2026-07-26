@@ -19,6 +19,17 @@ v1 首版支持 `bun` 与 `python` 两种 project-type。
 | dep-audit           | Y     | Y        | `bun audit --production` / `uv run pip-audit`             |
 | lockfile            | Y     | Y        | `bun install --frozen-lockfile` / `uv sync --frozen`      |
 
+## 项目类型命令矩阵
+
+按 project-type 列出各检查阶段使用的命令。
+
+| project-type | 说明                          | type-check          | lint                            | format                         | extended-lint | dep-audit                | lockfile/install                |
+| ------------ | ----------------------------- | ------------------- | ------------------------------- | ------------------------------ | ------------- | ------------------------ | ------------------------------- |
+| `bun`        | Bun 项目                      | `bunx tsc --noEmit` | `bun eslint --max-warnings 0 .` | `bun prettier --check .`       | 可选          | `bun audit --production` | `bun install --frozen-lockfile` |
+| `python`     | Python 项目                   | `uv run pyright .`  | `uv run ruff check .`           | `uv run ruff format --check .` | 可选          | `uv run pip-audit`       | `uv sync --frozen`              |
+| `rust`       | Rust 项目                     | `cargo check`       | `cargo clippy`                  | `cargo fmt`                    | —             | `cargo-audit`            | `cargo update`                  |
+| `node`       | Node.js 项目（npm/yarn/pnpm） | `npx tsc`           | `npx eslint`                    | `npx prettier`                 | —             | `npm audit`              | `npm ci`                        |
+
 ## 如何选择
 
 ### bun

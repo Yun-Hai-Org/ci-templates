@@ -6,21 +6,34 @@
 
 ### A/B/C 类（基础检查）
 
-| input                  | 类型    | 默认值   | 说明                                                                                                  |
-| ---------------------- | ------- | -------- | ----------------------------------------------------------------------------------------------------- |
-| `project-type`         | string  | `bun`    | `bun` 或 `python`（v1 仅这两种）                                                                      |
-| `run-static-analysis`  | boolean | `true`   | A 类总开关（type-check / lint / format）                                                              |
-| `run-security-scan`    | boolean | `true`   | B 类总开关（semgrep / gitleaks / trivy / knip / checkov / conftest / sonarqube / snyk / gitguardian） |
-| `run-dependency-audit` | boolean | `true`   | C 类总开关（dep-audit / lockfile-freshness）                                                          |
-| `run-extended-lint`    | boolean | `false`  | hadolint / shellcheck / stylelint / sqlfluff                                                          |
-| `run-knip`             | boolean | `true`   | JS 死代码检测（仅 bun 类型生效）                                                                      |
-| `run-osv-scanner`      | boolean | `false`  | OSV 全量扫描（慢，建议定时任务用）                                                                    |
-| `fail-on-severity`     | string  | `high`   | `none` / `low` / `medium` / `high` / `critical`                                                       |
-| `bun-version`          | string  | `latest` | setup-bun 安装的 Bun 版本                                                                             |
-| `python-version`       | string  | `3.12`   | setup-python 安装的 Python 版本                                                                       |
-| `working-directory`    | string  | `.`      | 工作子目录（monorepo 支持）                                                                           |
-| `wecom-notify`         | boolean | `true`   | 是否发送企业微信开始/结束通知                                                                         |
-| `debug`                | boolean | `false`  | 开启 debug 输出（打印 inputs 等）                                                                     |
+| input                             | 类型    | 默认值                             | 说明                                                                                                  |
+| --------------------------------- | ------- | ---------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `project-type`                    | string  | `bun`                              | `bun` 或 `python`（v1 仅这两种）                                                                      |
+| `run-static-analysis`             | boolean | `true`                             | A 类总开关（type-check / lint / format）                                                              |
+| `run-security-scan`               | boolean | `true`                             | B 类总开关（semgrep / gitleaks / trivy / knip / checkov / conftest / sonarqube / snyk / gitguardian） |
+| `run-dependency-audit`            | boolean | `true`                             | C 类总开关（dep-audit / lockfile-freshness）                                                          |
+| `run-extended-lint`               | boolean | `false`                            | hadolint / shellcheck / stylelint / sqlfluff                                                          |
+| `run-knip`                        | boolean | `true`                             | JS 死代码检测（仅 bun 类型生效）                                                                      |
+| `run-osv-scanner`                 | boolean | `false`                            | OSV 全量扫描（慢，建议定时任务用）                                                                    |
+| `run-unit-tests`                  | boolean | `true`                             | T 类单元测试（bun test / pytest / cargo test / npm test）                                             |
+| `run-integration-tests`           | boolean | `true`                             | T 类集成测试（无 tests/integration/ 跳过）                                                            |
+| `run-e2e-tests`                   | boolean | `true`                             | T 类 E2E 测试（Playwright/Cypress）                                                                   |
+| `test-command-bun-unit`           | string  | `bun test`                         | Bun 单元测试命令                                                                                      |
+| `test-command-bun-integration`    | string  | `bun test tests/integration`       | Bun 集成测试命令                                                                                      |
+| `test-command-python-unit`        | string  | `uv run pytest`                    | Python 单元测试命令                                                                                   |
+| `test-command-python-integration` | string  | `uv run pytest tests/integration/` | Python 集成测试命令                                                                                   |
+| `test-command-node-unit`          | string  | `npm test`                         | Node 单元测试命令                                                                                     |
+| `test-command-node-integration`   | string  | `npm test -- tests/integration`    | Node 集成测试命令                                                                                     |
+| `e2e-framework`                   | string  | `playwright`                       | E2E 框架：playwright 或 cypress                                                                       |
+| `rust-version`                    | string  | `stable`                           | Rust 工具链版本                                                                                       |
+| `node-version`                    | string  | `lts/*`                            | Node.js 版本                                                                                          |
+| `package-manager`                 | string  | `npm`                              | 包管理器：npm/yarn/pnpm（node only）                                                                  |
+| `fail-on-severity`                | string  | `high`                             | `none` / `low` / `medium` / `high` / `critical`                                                       |
+| `bun-version`                     | string  | `latest`                           | setup-bun 安装的 Bun 版本                                                                             |
+| `python-version`                  | string  | `3.12`                             | setup-python 安装的 Python 版本                                                                       |
+| `working-directory`               | string  | `.`                                | 工作子目录（monorepo 支持）                                                                           |
+| `wecom-notify`                    | boolean | `true`                             | 是否发送企业微信开始/结束通知                                                                         |
+| `debug`                           | boolean | `false`                            | 开启 debug 输出（打印 inputs 等）                                                                     |
 
 ### D 类：上线前卡点（release-gates）
 
@@ -41,8 +54,8 @@
 | input                      | 类型    | 默认值                     | 说明                      |
 | -------------------------- | ------- | -------------------------- | ------------------------- |
 | `run-ai-content-test`      | boolean | `false`                    | promptfoo AI 内容安全测试 |
-| `run-load-test`            | boolean | `false`                    | k6 / Locust 压测          |
-| `run-db-benchmark`         | boolean | `false`                    | pgbench DB 基准           |
+| `run-load-test`            | boolean | `true`                     | k6 / Locust 压测          |
+| `run-db-benchmark`         | boolean | `true`                     | pgbench DB 基准           |
 | `promptfoo-test-path`      | string  | `./tests/promptfoo`        | promptfoo 测试用例目录    |
 | `promptfoo-fail-threshold` | number  | `0.5`                      | 通过率阈值（0-1）         |
 | `load-test-framework`      | string  | `k6`                       | `k6` 或 `locust`          |
@@ -85,6 +98,9 @@
 | ------------------- | ------------------------ | ---------------------- |
 | `OPENAI_API_KEY`    | promptfoo 调用 OpenAI    | 跳过 AI 内容测试       |
 | `ANTHROPIC_API_KEY` | promptfoo 调用 Anthropic | 同上（两个都缺才跳过） |
+| `TEST_DATABASE_URL` | 集成测试数据库连接串     | 跳过集成测试，warning  |
+| `E2E_TARGET_URL`    | E2E 测试目标 URL         | 跳过 E2E 测试，warning |
+| `E2E_AUTH_TOKEN`    | E2E 测试认证 token       | 跳过 E2E 测试，warning |
 
 ## 使用示例
 
