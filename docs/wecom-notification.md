@@ -116,14 +116,13 @@ with:
 
 1. 确认 `WECOM_BOT_KEY` secret 已配置（仓库 Settings → Secrets）
 2. 确认 `wecom-notify: true`（默认 true）
-3. 查看 CI 日志中 `notify-start` / `notify-end` job 的输出：
-   - `WeCom notification sent: 🚀 CI 开始` → 发送成功
+3. 查看 CI 日志中 `notify-end` job 的输出：
    - `::warning::secret WECOM_BOT_KEY not set` → secret 未配置
    - `::warning::WeCom webhook returned errcode=...` → key 错误或机器人被禁用
 
 ### 通知延迟
 
-开始通知与三阶段检查并行发出，通常在 CI 启动后几秒内收到。结束通知在所有检查完成后发出。
+结束通知在所有检查完成后发出。
 
 ### errcode 说明
 

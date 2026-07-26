@@ -55,7 +55,7 @@ jobs:
 ┌──────────────────────────────────────────────────────────────────────┐
 │  standard-ci.yml (对外唯一入口)                                       │
 │                                                                       │
-│  notify-start ──► lint ──────────┐                                    │
+│  lint ──────────────────────────┐                                    │
 │                  security (B+B+) ┤                                    │
 │                  dependency ─────┤                                    │
 │                  release-gates(D)┤──► [ai-content, load-test,        │
