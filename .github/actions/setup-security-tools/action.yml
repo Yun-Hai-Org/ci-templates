@@ -18,11 +18,13 @@ runs:
       shell: bash
       env:
         TRIVY_VERSION: ${{ inputs.trivy-version }}
+        GITHUB_TOKEN: ${{ github.token }}
       run: |
         set -euo pipefail
         if [ "$TRIVY_VERSION" = "latest" ]; then
-          # 用 GitHub API 解析最新版本；CI runner 不限流
-          TRIVY_VERSION=$(curl -sS https://api.github.com/repos/aquasecurity/trivy/releases/latest \
+          # 用 GitHub API 解析最新版本；带 token 鉴权避免 CI runner IP 限流
+          TRIVY_VERSION=$(curl -sS -H "Authorization: Bearer $GITHUB_TOKEN" \
+            https://api.github.com/repos/aquasecurity/trivy/releases/latest \
             | grep -oP '"tag_name":\s*"\Kv[^"]+')
           if [ -z "$TRIVY_VERSION" ]; then
             echo "::error::无法解析 Trivy 最新版本（GitHub API 限流？）"

@@ -154,7 +154,8 @@ jobs:
               ;;
             python)
               { [ -f pyproject.toml ] || [ -f setup.py ] || [ -f requirements.txt ]; } && HAS_MANIFEST=1
-              git ls-files 'test_*.py' '*_test.py' 'conftest.py' 2>/dev/null | head -1 | grep -q . && HAS_TESTS=1
+              git ls-files ':(glob)**/test_*.py' ':(glob)**/*_test.py' ':(glob)**/conftest.py' \
+                2>/dev/null | head -1 | grep -q . && HAS_TESTS=1
               ;;
             rust)
               [ -f Cargo.toml ] && HAS_MANIFEST=1
