@@ -14,13 +14,9 @@ CI 检查完成后，自动向企业微信群发送模板卡片（template_card�
 │         ✅                         │  ← emphasis_content.title (状态图标)
 │         成功                       │  ← emphasis_content.desc (状态文字)
 │                                    │
-│  分支: feat/wecom-template-card    │  ← sub_title_text
+│  分支: xxx · 触发者: yyy · 事件: zzz │  ← sub_title_text
 │                                    │
-│  触发者        pr9898              │  ← horizontal_content_list
-│  事件          Push                │
-│  静态分析      🟡 部分跳过          │
-│  安全扫描      ✅ 成功              │
-│  依赖审计      ⊘ 跳过              │
+│  静态分析      🟡 部分跳过          │  ← horizontal_content_list (最多 6 项)
 │  ...                               │
 │                                    │
 │  [点击卡片查看 CI 详情]            │  ← card_action.url
