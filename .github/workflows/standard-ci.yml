@@ -107,7 +107,7 @@ on:
       wecom-notify:
         type: boolean
         default: true
-        description: "Send WeCom notification at CI start and end"
+        description: "Send WeCom notification at CI end"
       # ===== D 类：上线前卡点 =====
       run-release-gates:
         type: boolean
@@ -352,6 +352,45 @@ jobs:
         id: status
         shell: bash
         run: |
+          # 查询 GitHub API 获取 step 级别跳过状态（reusable workflow 共享 run_id）
+          curl -s -H "Authorization: Bearer ${{ github.token }}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}"\
+            "/actions/runs/${{ github.run_id }}/jobs?per_page=100" \
+            -o /tmp/run_jobs.json || true
+          python3 - <<'PYEOF'
+          import json
+          try:
+              with open('/tmp/run_jobs.json') as f:
+                  data = json.load(f)
+          except Exception:
+              data = {'jobs': []}
+          cats = {
+              'LINT': 'Lint & Format',
+              'SEC': 'Security Scan',
+              'DEP': 'Dependency Audit',
+              'TESTS': ' / Tests /',
+              'GATES': 'Release Gates (D)',
+              'AI': 'AI Content Test (E)',
+              'LOAD': 'Load Test (E)',
+              'DB': 'DB Benchmark (E)',
+          }
+          lines = []
+          for cat, kw in cats.items():
+              skip = '0'
+              for j in data.get('jobs', []):
+                  if kw in j.get('name', ''):
+                      for s in (j.get('steps') or []):
+                          if s.get('conclusion') == 'skipped':
+                              skip = '1'
+                              break
+                  if skip == '1':
+                      break
+              lines.append(cat + '_STEP_SKIP=' + skip)
+          open('/tmp/step_skips.sh', 'w').write('\n'.join(lines) + '\n')
+          PYEOF
+          . /tmp/step_skips.sh
+
           if [ "${{ inputs.run-static-analysis }}" != "true" ]; then
             LINT="skipped"
           else
@@ -405,7 +444,7 @@ jobs:
           # result 转 emoji + 中文
           result_icon() {
             case "$1" in
-              success) echo "✅ 成功" ;;
+              success) if [ "$2" = "1" ]; then echo "🟡 部分跳过"; else echo "✅ 成功"; fi ;;
               failure) echo "❌ 失败" ;;
               skipped) echo "⊘ 跳过" ;;
               *)       echo "❓ $1" ;;
@@ -431,15 +470,23 @@ jobs:
           [ "$AI" = "skipped" ] && SKIP=1
           [ "$LOAD" = "skipped" ] && SKIP=1
           [ "$DB" = "skipped" ] && SKIP=1
+          [ "$LINT" = "success" ] && [ "$LINT_STEP_SKIP" = "1" ] && SKIP=1
+          [ "$SEC" = "success" ] && [ "$SEC_STEP_SKIP" = "1" ] && SKIP=1
+          [ "$DEP" = "success" ] && [ "$DEP_STEP_SKIP" = "1" ] && SKIP=1
+          [ "$TESTS" = "success" ] && [ "$TESTS_STEP_SKIP" = "1" ] && SKIP=1
+          [ "$GATES" = "success" ] && [ "$GATES_STEP_SKIP" = "1" ] && SKIP=1
+          [ "$AI" = "success" ] && [ "$AI_STEP_SKIP" = "1" ] && SKIP=1
+          [ "$LOAD" = "success" ] && [ "$LOAD_STEP_SKIP" = "1" ] && SKIP=1
+          [ "$DB" = "success" ] && [ "$DB_STEP_SKIP" = "1" ] && SKIP=1
 
-          LINT_ICON=$(result_icon "$LINT")
-          SEC_ICON=$(result_icon "$SEC")
-          DEP_ICON=$(result_icon "$DEP")
-          GATES_ICON=$(result_icon "$GATES")
-          AI_ICON=$(result_icon "$AI")
-          LOAD_ICON=$(result_icon "$LOAD")
-          DB_ICON=$(result_icon "$DB")
-          TESTS_ICON=$(result_icon "$TESTS")
+          LINT_ICON=$(result_icon "$LINT" "$LINT_STEP_SKIP")
+          SEC_ICON=$(result_icon "$SEC" "$SEC_STEP_SKIP")
+          DEP_ICON=$(result_icon "$DEP" "$DEP_STEP_SKIP")
+          GATES_ICON=$(result_icon "$GATES" "$GATES_STEP_SKIP")
+          AI_ICON=$(result_icon "$AI" "$AI_STEP_SKIP")
+          LOAD_ICON=$(result_icon "$LOAD" "$LOAD_STEP_SKIP")
+          DB_ICON=$(result_icon "$DB" "$DB_STEP_SKIP")
+          TESTS_ICON=$(result_icon "$TESTS" "$TESTS_STEP_SKIP")
 
           if [ "$FAIL" = "1" ]; then
             echo "title=❌ CI 失败" >> "$GITHUB_OUTPUT"
