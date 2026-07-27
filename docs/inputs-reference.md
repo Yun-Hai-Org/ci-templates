@@ -32,7 +32,7 @@
 | `bun-version`                     | string  | `latest`                           | setup-bun 安装的 Bun 版本                                                                             |
 | `python-version`                  | string  | `3.12`                             | setup-python 安装的 Python 版本                                                                       |
 | `working-directory`               | string  | `.`                                | 工作子目录（monorepo 支持）                                                                           |
-| `wecom-notify`                    | boolean | `true`                             | 是否发送企业微信 CI 结果通知                                                                         |
+| `wecom-notify`                    | boolean | `true`                             | 是否发送企业微信 CI 结果通知                                                                          |
 | `debug`                           | boolean | `false`                            | 开启 debug 输出（打印 inputs 等）                                                                     |
 
 ### D 类：上线前卡点（release-gates）
