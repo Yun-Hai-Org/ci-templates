@@ -48,14 +48,14 @@ jobs:
 
       - name: Setup Bun
         if: inputs.project-type == 'bun' && hashFiles('package.json') != ''
-        uses: ./.github/actions/setup-bun
+        uses: Yun-Hai-Org/ci-templates/.github/actions/setup-bun@2449d61c5cebe44b6b12c1dc452ad5373d94a0c8
         with:
           bun-version: ${{ inputs.bun-version }}
           working-directory: ${{ inputs.working-directory }}
 
       - name: Setup Python
         if: inputs.project-type == 'python' && hashFiles('pyproject.toml', 'setup.py', 'requirements.txt') != ''
-        uses: ./.github/actions/setup-python
+        uses: Yun-Hai-Org/ci-templates/.github/actions/setup-python@2449d61c5cebe44b6b12c1dc452ad5373d94a0c8
         with:
           python-version: ${{ inputs.python-version }}
           working-directory: ${{ inputs.working-directory }}
@@ -94,7 +94,7 @@ jobs:
 
       - name: Setup Rust
         if: inputs.project-type == 'rust' && hashFiles('Cargo.toml') != ''
-        uses: ./.github/actions/setup-rust
+        uses: Yun-Hai-Org/ci-templates/.github/actions/setup-rust@2449d61c5cebe44b6b12c1dc452ad5373d94a0c8
         with:
           rust-version: ${{ inputs.rust-version }}
           working-directory: ${{ inputs.working-directory }}
@@ -117,7 +117,7 @@ jobs:
 
       - name: Setup Node
         if: inputs.project-type == 'node' && hashFiles('package.json') != ''
-        uses: ./.github/actions/setup-node
+        uses: Yun-Hai-Org/ci-templates/.github/actions/setup-node@2449d61c5cebe44b6b12c1dc452ad5373d94a0c8
         with:
           node-version: ${{ inputs.node-version }}
           package-manager: ${{ inputs.package-manager }}
@@ -196,7 +196,7 @@ jobs:
 
       - name: Setup Bun (for stylelint)
         if: hashFiles('**/*.css') != '' && inputs.project-type == 'bun'
-        uses: ./.github/actions/setup-bun
+        uses: Yun-Hai-Org/ci-templates/.github/actions/setup-bun@2449d61c5cebe44b6b12c1dc452ad5373d94a0c8
         with:
           bun-version: ${{ inputs.bun-version }}
           working-directory: ${{ inputs.working-directory }}

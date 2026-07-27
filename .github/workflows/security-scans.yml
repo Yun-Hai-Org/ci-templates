@@ -66,13 +66,13 @@ jobs:
           fetch-depth: 0
 
       - name: Setup security tools (Trivy + Conftest)
-        uses: ./.github/actions/setup-security-tools
+        uses: Yun-Hai-Org/ci-templates/.github/actions/setup-security-tools@2449d61c5cebe44b6b12c1dc452ad5373d94a0c8
 
       - name: Setup Bun (for knip)
         # 同时检查 package.json 是否存在：无 package.json 时跳过 Bun 安装（~10s）
         # Knip step 自身会输出"无 package.json"notice，告知跳过原因
         if: inputs.project-type == 'bun' && inputs.run-knip == true && hashFiles('package.json') != ''
-        uses: ./.github/actions/setup-bun
+        uses: Yun-Hai-Org/ci-templates/.github/actions/setup-bun@2449d61c5cebe44b6b12c1dc452ad5373d94a0c8
         with:
           bun-version: ${{ inputs.bun-version }}
           working-directory: ${{ inputs.working-directory }}
