@@ -55,7 +55,7 @@ jobs:
 
       - name: Setup Python
         if: inputs.project-type == 'python' && hashFiles('pyproject.toml', 'setup.py', 'requirements.txt') != ''
-        uses: Yun-Hai-Org/ci-templates/.github/actions/setup-python@2449d61c5cebe44b6b12c1dc452ad5373d94a0c8
+        uses: Yun-Hai-Org/ci-templates/.github/actions/setup-python@8c538a08e29f03a2d7825f1c56cec6b6e0db3538
         with:
           python-version: ${{ inputs.python-version }}
           working-directory: ${{ inputs.working-directory }}

@@ -66,7 +66,7 @@ jobs:
           fetch-depth: 0
 
       - name: Setup security tools (Trivy + Conftest)
-        uses: Yun-Hai-Org/ci-templates/.github/actions/setup-security-tools@2449d61c5cebe44b6b12c1dc452ad5373d94a0c8
+        uses: Yun-Hai-Org/ci-templates/.github/actions/setup-security-tools@8c538a08e29f03a2d7825f1c56cec6b6e0db3538
 
       - name: Setup Bun (for knip)
         # 同时检查 package.json 是否存在：无 package.json 时跳过 Bun 安装（~10s）
