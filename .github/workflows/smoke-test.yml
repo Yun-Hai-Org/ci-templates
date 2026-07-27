@@ -21,6 +21,7 @@ concurrency:
 # 才能让子 workflow 的 upload-sarif 有权限
 permissions:
   contents: read
+  actions: read
   security-events: write
 
 jobs:

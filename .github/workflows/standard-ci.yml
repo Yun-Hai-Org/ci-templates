@@ -222,9 +222,11 @@ on:
         required: false
 
 # 嵌套调用 security-scans.yml / release-gates.yml 的 upload-sarif 需要
-# security-events: write；调用方（业务仓库 ci.yml 或 smoke-test.yml）需显式授予
+# security-events: write；notify-end 查询 jobs API 需要 actions: read。
+# 调用方（业务仓库 ci.yml 或 smoke-test.yml）需显式授予 actions: read + security-events: write
 permissions:
   contents: read
+  actions: read
   security-events: write
 
 jobs:
@@ -388,6 +390,7 @@ jobs:
                       break
               lines.append(cat + '_STEP_SKIP=' + skip)
           open('/tmp/step_skips.sh', 'w').write('\n'.join(lines) + '\n')
+          print('STEP_SKIP_DEBUG jobs_found=' + str(len(data.get('jobs', []))) + ' ' + ' '.join(lines))
           PYEOF
           . /tmp/step_skips.sh
 
