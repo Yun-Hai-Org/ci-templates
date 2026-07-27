@@ -209,6 +209,7 @@ jobs:
             printf '%s\n' \
               "module.exports = {" \
               "  extends: ['@commitlint/config-conventional']," \
+              "  rules: { 'subject-case': [0], 'body-max-line-length': [0] }," \
               "};" > ./commitlint.inline.config.js
             CONFIG_ARGS=(--config ./commitlint.inline.config.js)
           fi

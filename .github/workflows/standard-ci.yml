@@ -444,15 +444,6 @@ jobs:
             DB="${{ needs.db-benchmark.result || 'skipped' }}"
           fi
 
-          # result 转 emoji + 中文
-          result_icon() {
-            case "$1" in
-              success) if [ "$2" = "1" ]; then echo "🟡 部分跳过"; else echo "✅ 成功"; fi ;;
-              failure) echo "❌ 失败" ;;
-              skipped) echo "⊘ 跳过" ;;
-              *)       echo "❓ $1" ;;
-            esac
-          }
 
           FAIL=0
           [ "$LINT" = "failure" ] && FAIL=1
@@ -482,15 +473,6 @@ jobs:
           [ "$LOAD" = "success" ] && [ "$LOAD_STEP_SKIP" = "1" ] && SKIP=1
           [ "$DB" = "success" ] && [ "$DB_STEP_SKIP" = "1" ] && SKIP=1
 
-          LINT_ICON=$(result_icon "$LINT" "$LINT_STEP_SKIP")
-          SEC_ICON=$(result_icon "$SEC" "$SEC_STEP_SKIP")
-          DEP_ICON=$(result_icon "$DEP" "$DEP_STEP_SKIP")
-          GATES_ICON=$(result_icon "$GATES" "$GATES_STEP_SKIP")
-          AI_ICON=$(result_icon "$AI" "$AI_STEP_SKIP")
-          LOAD_ICON=$(result_icon "$LOAD" "$LOAD_STEP_SKIP")
-          DB_ICON=$(result_icon "$DB" "$DB_STEP_SKIP")
-          TESTS_ICON=$(result_icon "$TESTS" "$TESTS_STEP_SKIP")
-
           if [ "$FAIL" = "1" ]; then
             echo "title=❌ CI 失败" >> "$GITHUB_OUTPUT"
             echo "status=failure" >> "$GITHUB_OUTPUT"
@@ -502,24 +484,73 @@ jobs:
             echo "status=success" >> "$GITHUB_OUTPUT"
           fi
 
-          # 多行 output 用 DELIMITER 语法
-          # 注意：extra 里的行不加 > 前缀，notify-wecom action 会统一添加
-          {
-            echo "extra<<EOF"
-            echo "📋 检查结果"
-            echo "🔍 静态分析　${LINT_ICON}"
-            echo "🛡️ 安全扫描　${SEC_ICON}"
-            echo "📦 依赖审计　${DEP_ICON}"
-            echo "🚦 上线卡点　${GATES_ICON}"
-            echo "🤖 AI 内容　${AI_ICON}"
-            echo "⚡ 压测　　　${LOAD_ICON}"
-            echo "🗄️ DB 基准　${DB_ICON}"
-            echo "🧪 测试　　　${TESTS_ICON}"
-            echo "EOF"
-          } >> "$GITHUB_OUTPUT"
+      - name: Send WeCom notification (template_card)
+        if: ${{ env.WECOM_BOT_KEY != '' }}
+        shell: bash
+        env:
+          WECOM_BOT_KEY: ${{ env.WECOM_BOT_KEY }}
+          TITLE: ${{ steps.status.outputs.title }}
+          STATUS: ${{ steps.status.outputs.status }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PYEOF'
+          import json, os, urllib.request
 
-      - uses: Yun-Hai-Org/ci-templates/.github/actions/notify-wecom@main
-        with:
-          title: ${{ steps.status.outputs.title }}
-          status: ${{ steps.status.outputs.status }}
-          extra: ${{ steps.status.outputs.extra }}
+          title = os.environ.get('TITLE', '')
+          status = os.environ.get('STATUS', '')
+          repo = os.environ.get('GITHUB_REPOSITORY', '')
+          actor = os.environ.get('GITHUB_ACTOR', '')
+          event = os.environ.get('GITHUB_EVENT_NAME', '')
+          run_id = os.environ.get('GITHUB_RUN_ID', '')
+          server_url = os.environ.get('GITHUB_SERVER_URL', 'https://github.com')
+          key = os.environ.get('WECOM_BOT_KEY', '')
+
+          ref = os.environ.get('GITHUB_REF', '')
+          branch = ref[11:] if ref.startswith('refs/heads/') else ref
+          if event == 'pull_request':
+              head = os.environ.get('GITHUB_HEAD_REF', '')
+              if head:
+                  branch = head
+
+          run_url = server_url + '/' + repo + '/actions/runs/' + run_id
+
+          event_cn = {'pull_request': 'Pull Request', 'push': 'Push',
+                      'workflow_dispatch': '手动触发', 'schedule': '定时任务'}
+          event_text = event_cn.get(event, event)
+
+          hcl = [
+              {'keyname': '📦 仓库', 'value': repo},
+              {'keyname': '🌿 分支', 'value': branch},
+              {'keyname': '👤 触发者', 'value': actor},
+              {'keyname': '⚙️ 事件', 'value': event_text},
+              {'keyname': '✅ 状态', 'value': status},
+              {'keyname': '👉 详情', 'value': '点击查看', 'type': 1, 'url': run_url},
+          ]
+
+          card = {
+              'card_type': 'text_notice',
+              'main_title': {'title': title, 'desc': repo},
+              'horizontal_content_list': hcl,
+              'card_action': {'type': 1, 'url': run_url},
+          }
+          payload = json.dumps({'msgtype': 'template_card', 'template_card': card})
+
+          url = 'https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=' + key
+          req = urllib.request.Request(url, data=payload.encode('utf-8'),
+                                       headers={'Content-Type': 'application/json'})
+          try:
+              with urllib.request.urlopen(req, timeout=10) as resp:
+                  body = resp.read().decode('utf-8')
+              result = json.loads(body)
+              if result.get('errcode') == 0:
+                  print('WeCom notification sent: ' + title)
+              else:
+                  print('::warning::WeCom webhook returned ' + body)
+          except Exception as e:
+              print('::warning::WeCom notification failed: ' + str(e))
+          PYEOF
+
+      - name: Skip WeCom notification (no key)
+        if: ${{ env.WECOM_BOT_KEY == '' }}
+        shell: bash
+        run: echo "::warning::secret WECOM_BOT_KEY not set, skipping WeCom notification"
