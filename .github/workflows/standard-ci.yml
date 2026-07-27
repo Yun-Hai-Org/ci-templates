@@ -1,7 +1,7 @@
 name: Standard CI
 
 # 对外唯一入口：业务项目通过 uses: ./.github/workflows/standard-ci.yml 调用。
-# 内部编排 notify-start → [lint / security / dependency] → notify-end。
+# 内部编排 [lint / security / dependency / tests / release-gates] → notify-end。
 
 on:
   workflow_call:
@@ -107,7 +107,7 @@ on:
       wecom-notify:
         type: boolean
         default: true
-        description: "Send WeCom notification at CI start and end"
+        description: "Send WeCom notification at CI end"
       # ===== D 类：上线前卡点 =====
       run-release-gates:
         type: boolean
@@ -222,40 +222,14 @@ on:
         required: false
 
 # 嵌套调用 security-scans.yml / release-gates.yml 的 upload-sarif 需要
-# security-events: write；调用方（业务仓库 ci.yml 或 smoke-test.yml）需显式授予
+# security-events: write；notify-end 查询 jobs API 需要 actions: read。
+# 调用方（业务仓库 ci.yml 或 smoke-test.yml）需显式授予 actions: read + security-events: write
 permissions:
   contents: read
+  actions: read
   security-events: write
 
 jobs:
-  notify-start:
-    name: Notify CI Start (WeCom)
-    if: ${{ inputs.wecom-notify == true }}
-    runs-on: ubuntu-latest
-    env:
-      WECOM_BOT_KEY: ${{ secrets.WECOM_BOT_KEY }}
-    steps:
-      - name: Debug context
-        if: ${{ inputs.debug == true }}
-        env:
-          INPUTS: ${{ toJSON(inputs) }}
-        run: echo "$INPUTS"
-      - uses: Yun-Hai-Org/ci-templates/.github/actions/notify-wecom@main
-        with:
-          title: "🚀 CI 开始"
-          status: started
-          extra: |
-            📋 检查配置
-            📦 项目类型　${{ inputs.project-type }}
-            🔍 静态分析　${{ inputs.run-static-analysis }}
-            🛡️ 安全扫描　${{ inputs.run-security-scan }}
-            📦 依赖审计　${{ inputs.run-dependency-audit }}
-            🚦 上线卡点　${{ inputs.run-release-gates }}
-            🤖 AI 内容　${{ inputs.run-ai-content-test }}
-            ⚡ 压测　　　${{ inputs.run-load-test }}
-            🗄️ DB 基准　${{ inputs.run-db-benchmark }}
-            🧪 测试　　　${{ inputs.run-unit-tests }}
-
   lint:
     name: Lint & Format
     if: ${{ inputs.run-static-analysis == true }}
@@ -380,19 +354,100 @@ jobs:
         id: status
         shell: bash
         run: |
-          LINT="${{ needs.lint.result || 'skipped' }}"
-          SEC="${{ needs.security.result || 'skipped' }}"
-          DEP="${{ needs.dependency.result || 'skipped' }}"
-          GATES="${{ needs.release-gates.result || 'skipped' }}"
-          AI="${{ needs.ai-content.result || 'skipped' }}"
-          LOAD="${{ needs.load-test.result || 'skipped' }}"
-          DB="${{ needs.db-benchmark.result || 'skipped' }}"
-          TESTS="${{ needs.tests.result || 'skipped' }}"
+          # 查询 GitHub API 获取 step 级别跳过状态（reusable workflow 共享 run_id）
+          API_BASE="https://api.github.com/repos/${{ github.repository }}"
+          API_URL="${API_BASE}/actions/runs/${{ github.run_id }}/jobs?per_page=100"
+          curl -s -H "Authorization: Bearer ${{ github.token }}" \
+            -H "Accept: application/vnd.github+json" \
+            "$API_URL" \
+            -o /tmp/run_jobs.json || true
+          python3 - <<'PYEOF'
+          import json
+          try:
+              with open('/tmp/run_jobs.json') as f:
+                  data = json.load(f)
+          except Exception:
+              data = {'jobs': []}
+          cats = {
+              'LINT': 'Lint & Format',
+              'SEC': 'Security Scan',
+              'DEP': 'Dependency Audit',
+              'TESTS': ' / Tests /',
+              'GATES': 'Release Gates (D)',
+              'AI': 'AI Content Test (E)',
+              'LOAD': 'Load Test (E)',
+              'DB': 'DB Benchmark (E)',
+          }
+          lines = []
+          for cat, kw in cats.items():
+              skip = '0'
+              for j in data.get('jobs', []):
+                  if kw in j.get('name', ''):
+                      for s in (j.get('steps') or []):
+                          if s.get('conclusion') == 'skipped':
+                              skip = '1'
+                              break
+                  if skip == '1':
+                      break
+              lines.append(cat + '_STEP_SKIP=' + skip)
+          open('/tmp/step_skips.sh', 'w').write('\n'.join(lines) + '\n')
+          PYEOF
+          . /tmp/step_skips.sh
+
+          if [ "${{ inputs.run-static-analysis }}" != "true" ]; then
+            LINT="skipped"
+          else
+            LINT="${{ needs.lint.result || 'skipped' }}"
+          fi
+
+          if [ "${{ inputs.run-security-scan }}" != "true" ]; then
+            SEC="skipped"
+          else
+            SEC="${{ needs.security.result || 'skipped' }}"
+          fi
+
+          if [ "${{ inputs.run-dependency-audit }}" != "true" ]; then
+            DEP="skipped"
+          else
+            DEP="${{ needs.dependency.result || 'skipped' }}"
+          fi
+
+          if [ "${{ inputs.run-unit-tests }}" != "true" ] &&
+             [ "${{ inputs.run-integration-tests }}" != "true" ] &&
+             [ "${{ inputs.run-e2e-tests }}" != "true" ]; then
+            TESTS="skipped"
+          else
+            TESTS="${{ needs.tests.result || 'skipped' }}"
+          fi
+
+          if [ "${{ inputs.run-release-gates }}" != "true" ]; then
+            GATES="skipped"
+          else
+            GATES="${{ needs.release-gates.result || 'skipped' }}"
+          fi
+
+          if [ "${{ inputs.run-ai-content-test }}" != "true" ] || [ "$GATES" != "success" ]; then
+            AI="skipped"
+          else
+            AI="${{ needs.ai-content.result || 'skipped' }}"
+          fi
+
+          if [ "${{ inputs.run-load-test }}" != "true" ] || [ "$GATES" != "success" ]; then
+            LOAD="skipped"
+          else
+            LOAD="${{ needs.load-test.result || 'skipped' }}"
+          fi
+
+          if [ "${{ inputs.run-db-benchmark }}" != "true" ] || [ "$GATES" != "success" ]; then
+            DB="skipped"
+          else
+            DB="${{ needs.db-benchmark.result || 'skipped' }}"
+          fi
 
           # result 转 emoji + 中文
           result_icon() {
             case "$1" in
-              success) echo "✅ 成功" ;;
+              success) if [ "$2" = "1" ]; then echo "🟡 部分跳过"; else echo "✅ 成功"; fi ;;
               failure) echo "❌ 失败" ;;
               skipped) echo "⊘ 跳过" ;;
               *)       echo "❓ $1" ;;
@@ -409,18 +464,39 @@ jobs:
           [ "$DB" = "failure" ] && FAIL=1
           [ "$TESTS" = "failure" ] && FAIL=1
 
-          LINT_ICON=$(result_icon "$LINT")
-          SEC_ICON=$(result_icon "$SEC")
-          DEP_ICON=$(result_icon "$DEP")
-          GATES_ICON=$(result_icon "$GATES")
-          AI_ICON=$(result_icon "$AI")
-          LOAD_ICON=$(result_icon "$LOAD")
-          DB_ICON=$(result_icon "$DB")
-          TESTS_ICON=$(result_icon "$TESTS")
+          SKIP=0
+          [ "$LINT" = "skipped" ] && SKIP=1
+          [ "$SEC" = "skipped" ] && SKIP=1
+          [ "$DEP" = "skipped" ] && SKIP=1
+          [ "$TESTS" = "skipped" ] && SKIP=1
+          [ "$GATES" = "skipped" ] && SKIP=1
+          [ "$AI" = "skipped" ] && SKIP=1
+          [ "$LOAD" = "skipped" ] && SKIP=1
+          [ "$DB" = "skipped" ] && SKIP=1
+          [ "$LINT" = "success" ] && [ "$LINT_STEP_SKIP" = "1" ] && SKIP=1
+          [ "$SEC" = "success" ] && [ "$SEC_STEP_SKIP" = "1" ] && SKIP=1
+          [ "$DEP" = "success" ] && [ "$DEP_STEP_SKIP" = "1" ] && SKIP=1
+          [ "$TESTS" = "success" ] && [ "$TESTS_STEP_SKIP" = "1" ] && SKIP=1
+          [ "$GATES" = "success" ] && [ "$GATES_STEP_SKIP" = "1" ] && SKIP=1
+          [ "$AI" = "success" ] && [ "$AI_STEP_SKIP" = "1" ] && SKIP=1
+          [ "$LOAD" = "success" ] && [ "$LOAD_STEP_SKIP" = "1" ] && SKIP=1
+          [ "$DB" = "success" ] && [ "$DB_STEP_SKIP" = "1" ] && SKIP=1
+
+          LINT_ICON=$(result_icon "$LINT" "$LINT_STEP_SKIP")
+          SEC_ICON=$(result_icon "$SEC" "$SEC_STEP_SKIP")
+          DEP_ICON=$(result_icon "$DEP" "$DEP_STEP_SKIP")
+          GATES_ICON=$(result_icon "$GATES" "$GATES_STEP_SKIP")
+          AI_ICON=$(result_icon "$AI" "$AI_STEP_SKIP")
+          LOAD_ICON=$(result_icon "$LOAD" "$LOAD_STEP_SKIP")
+          DB_ICON=$(result_icon "$DB" "$DB_STEP_SKIP")
+          TESTS_ICON=$(result_icon "$TESTS" "$TESTS_STEP_SKIP")
 
           if [ "$FAIL" = "1" ]; then
             echo "title=❌ CI 失败" >> "$GITHUB_OUTPUT"
             echo "status=failure" >> "$GITHUB_OUTPUT"
+          elif [ "$SKIP" = "1" ]; then
+            echo "title=✅ CI 完成（部分跳过）" >> "$GITHUB_OUTPUT"
+            echo "status=success" >> "$GITHUB_OUTPUT"
           else
             echo "title=✅ CI 完成" >> "$GITHUB_OUTPUT"
             echo "status=success" >> "$GITHUB_OUTPUT"
