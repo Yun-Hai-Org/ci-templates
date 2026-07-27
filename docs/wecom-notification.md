@@ -8,16 +8,15 @@ CI 检查完成后，自动向企业微信群发送模板卡片（template_card�
 
 ```
 ┌───────────────────────────────────┐
-│  ✅ CI 完成                        │  ← main_title.title
+│  ✅ CI 完成（部分跳过）            │  ← main_title.title
 │  Yun-Hai-Org/ci-templates          │  ← main_title.desc (仓库名)
 │                                    │
-│         ✅                         │  ← emphasis_content.title (状态图标)
-│         成功                       │  ← emphasis_content.desc (状态文字)
-│                                    │
-│  分支: xxx · 触发者: yyy · 事件: zzz │  ← sub_title_text
-│                                    │
-│  静态分析      🟡 部分跳过          │  ← horizontal_content_list (最多 6 项)
-│  ...                               │
+│  📦 仓库      Yun-Hai-Org/...      │  ← horizontal_content_list
+│  🌿 分支      feat/wecom-...       │
+│  👤 触发者    pr9898               │
+│  ⚙️ 事件      Pull Request         │
+│  ✅ 状态      success              │
+│  👉 详情      点击查看             │
 │                                    │
 │  [点击卡片查看 CI 详情]            │  ← card_action.url
 └───────────────────────────────────┘
@@ -25,20 +24,11 @@ CI 检查完成后，自动向企业微信群发送模板卡片（template_card�
 
 ### 标题与状态映射
 
-| 场景     | title                  | status  | emphasis 图标 |
-| -------- | ---------------------- | ------- | ------------- |
-| 全部成功 | ✅ CI 完成             | success | ✅            |
-| 部分跳过 | ✅ CI 完成（部分跳过） | success | ✅            |
-| 有失败   | ❌ CI 失败             | failure | ❌            |
-
-### 检查项状态图标
-
-| 图标        | 含义       |
-| ----------- | ---------- |
-| ✅ 成功     | 检查通过   |
-| 🟡 部分跳过 | 有步骤跳过 |
-| ❌ 失败     | 检查失败   |
-| ⊘ 跳过      | 整项跳过   |
+| 场景     | title                  | status  |
+| -------- | ---------------------- | ------- |
+| 全部成功 | ✅ CI 完成             | success |
+| 部分跳过 | ✅ CI 完成（部分跳过） | success |
+| 有失败   | ❌ CI 失败             | failure |
 
 ## 配置步骤
 

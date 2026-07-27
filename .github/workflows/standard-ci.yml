@@ -444,15 +444,6 @@ jobs:
             DB="${{ needs.db-benchmark.result || 'skipped' }}"
           fi
 
-          # result 转 emoji + 中文
-          result_icon() {
-            case "$1" in
-              success) if [ "$2" = "1" ]; then echo "🟡 部分跳过"; else echo "✅ 成功"; fi ;;
-              failure) echo "❌ 失败" ;;
-              skipped) echo "⊘ 跳过" ;;
-              *)       echo "❓ $1" ;;
-            esac
-          }
 
           FAIL=0
           [ "$LINT" = "failure" ] && FAIL=1
@@ -482,15 +473,6 @@ jobs:
           [ "$LOAD" = "success" ] && [ "$LOAD_STEP_SKIP" = "1" ] && SKIP=1
           [ "$DB" = "success" ] && [ "$DB_STEP_SKIP" = "1" ] && SKIP=1
 
-          LINT_ICON=$(result_icon "$LINT" "$LINT_STEP_SKIP")
-          SEC_ICON=$(result_icon "$SEC" "$SEC_STEP_SKIP")
-          DEP_ICON=$(result_icon "$DEP" "$DEP_STEP_SKIP")
-          GATES_ICON=$(result_icon "$GATES" "$GATES_STEP_SKIP")
-          AI_ICON=$(result_icon "$AI" "$AI_STEP_SKIP")
-          LOAD_ICON=$(result_icon "$LOAD" "$LOAD_STEP_SKIP")
-          DB_ICON=$(result_icon "$DB" "$DB_STEP_SKIP")
-          TESTS_ICON=$(result_icon "$TESTS" "$TESTS_STEP_SKIP")
-
           if [ "$FAIL" = "1" ]; then
             echo "title=❌ CI 失败" >> "$GITHUB_OUTPUT"
             echo "status=failure" >> "$GITHUB_OUTPUT"
@@ -502,21 +484,6 @@ jobs:
             echo "status=success" >> "$GITHUB_OUTPUT"
           fi
 
-          # 多行 output 用 DELIMITER 语法
-          # 注意：extra 行格式为 "emoji 名称　状态"，notify-wecom action 解析为模板卡片 horizontal_content_list
-          {
-            echo "extra<<EOF"
-            echo "📋 检查结果"
-            echo "🔍 静态分析　${LINT_ICON}"
-            echo "🛡️ 安全扫描　${SEC_ICON}"
-            echo "📦 依赖审计　${DEP_ICON}"
-            echo "🚦 上线卡点　${GATES_ICON}"
-            echo "🤖 AI 内容　${AI_ICON}"
-            echo "⚡ 压测　　　${LOAD_ICON}"
-            echo "🗄️ DB 基准　${DB_ICON}"
-            echo "🧪 测试　　　${TESTS_ICON}"
-            echo "EOF"
-          } >> "$GITHUB_OUTPUT"
 
       - name: Send WeCom notification (template_card)
         if: ${{ env.WECOM_BOT_KEY != '' }}
@@ -525,7 +492,6 @@ jobs:
           WECOM_BOT_KEY: ${{ env.WECOM_BOT_KEY }}
           TITLE: ${{ steps.status.outputs.title }}
           STATUS: ${{ steps.status.outputs.status }}
-          EXTRA: ${{ steps.status.outputs.extra }}
         run: |
           set -euo pipefail
           python3 - <<'PYEOF'
@@ -533,7 +499,6 @@ jobs:
 
           title = os.environ.get('TITLE', '')
           status = os.environ.get('STATUS', '')
-          extra = os.environ.get('EXTRA', '')
           repo = os.environ.get('GITHUB_REPOSITORY', '')
           actor = os.environ.get('GITHUB_ACTOR', '')
           event = os.environ.get('GITHUB_EVENT_NAME', '')
@@ -550,35 +515,22 @@ jobs:
 
           run_url = server_url + '/' + repo + '/actions/runs/' + run_id
 
-          status_icons = {'success': '✅', 'failure': '❌', 'started': '🚀'}
-          status_icon = status_icons.get(status, 'ℹ️')
-          status_cn = {'success': '成功', 'failure': '失败', 'started': '开始'}
-          status_text = status_cn.get(status, status)
           event_cn = {'pull_request': 'Pull Request', 'push': 'Push',
                       'workflow_dispatch': '手动触发', 'schedule': '定时任务'}
           event_text = event_cn.get(event, event)
 
-          hcl = []
-
-
-          if extra:
-              for line in extra.split('\n'):
-                  line = line.strip()
-                  if not line or '检查结果' in line:
-                      continue
-                  parts = [p for p in line.split(chr(0x3000)) if p.strip()]
-                  if len(parts) < 2:
-                      continue
-                  kn = parts[0].split(' ', 1)
-                  keyname = kn[-1] if len(kn) == 2 else kn[0]
-                  hcl.append({'keyname': keyname, 'value': parts[1].strip()})
-          hcl = hcl[:6]
+          hcl = [
+              {'keyname': '📦 仓库', 'value': repo},
+              {'keyname': '🌿 分支', 'value': branch},
+              {'keyname': '👤 触发者', 'value': actor},
+              {'keyname': '⚙️ 事件', 'value': event_text},
+              {'keyname': '✅ 状态', 'value': status},
+              {'keyname': '👉 详情', 'value': '点击查看', 'type': 1, 'url': run_url},
+          ]
 
           card = {
               'card_type': 'text_notice',
               'main_title': {'title': title, 'desc': repo},
-              'emphasis_content': {'title': status_icon, 'desc': status_text},
-              'sub_title_text': '分支: ' + branch + ' · 触发者: ' + actor + ' · 事件: ' + event_text,
               'horizontal_content_list': hcl,
               'card_action': {'type': 1, 'url': run_url},
           }
