@@ -558,8 +558,8 @@ jobs:
                       'workflow_dispatch': '手动触发', 'schedule': '定时任务'}
           event_text = event_cn.get(event, event)
 
-          hcl = [{'keyname': '触发者', 'value': actor},
-                 {'keyname': '事件', 'value': event_text}]
+          hcl = []
+
 
           if extra:
               for line in extra.split('\n'):
@@ -572,12 +572,13 @@ jobs:
                   kn = parts[0].split(' ', 1)
                   keyname = kn[-1] if len(kn) == 2 else kn[0]
                   hcl.append({'keyname': keyname, 'value': parts[1].strip()})
+          hcl = hcl[:6]
 
           card = {
               'card_type': 'text_notice',
               'main_title': {'title': title, 'desc': repo},
               'emphasis_content': {'title': status_icon, 'desc': status_text},
-              'sub_title_text': '分支: ' + branch,
+              'sub_title_text': '分支: ' + branch + ' · 触发者: ' + actor + ' · 事件: ' + event_text,
               'horizontal_content_list': hcl,
               'card_action': {'type': 1, 'url': run_url},
           }
