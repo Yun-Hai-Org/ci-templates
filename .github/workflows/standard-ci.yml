@@ -484,7 +484,6 @@ jobs:
             echo "status=success" >> "$GITHUB_OUTPUT"
           fi
 
-
       - name: Send WeCom notification (template_card)
         if: ${{ env.WECOM_BOT_KEY != '' }}
         shell: bash
