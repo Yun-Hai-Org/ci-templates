@@ -518,7 +518,7 @@ jobs:
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
 
-      - uses: Yun-Hai-Org/ci-templates/.github/actions/notify-wecom@main
+      - uses: ./.github/actions/notify-wecom
         with:
           title: ${{ steps.status.outputs.title }}
           status: ${{ steps.status.outputs.status }}
