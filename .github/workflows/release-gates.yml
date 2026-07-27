@@ -55,7 +55,7 @@ jobs:
       # ============================================================
       - name: Setup OPA
         if: hashFiles('policy/**') != ''
-        uses: Yun-Hai-Org/ci-templates/.github/actions/setup-opa@main
+        uses: Yun-Hai-Org/ci-templates/.github/actions/setup-opa@2449d61c5cebe44b6b12c1dc452ad5373d94a0c8
 
       - name: OPA fmt check (policies)
         if: hashFiles('policy/**') != ''
@@ -163,7 +163,7 @@ jobs:
       # ============================================================
       - name: Setup AI tools (ajv-cli)
         if: inputs.schema-check-paths != ''
-        uses: Yun-Hai-Org/ci-templates/.github/actions/setup-ai-tools@main
+        uses: Yun-Hai-Org/ci-templates/.github/actions/setup-ai-tools@2449d61c5cebe44b6b12c1dc452ad5373d94a0c8
 
       - name: Schema check (Agent config)
         if: inputs.schema-check-paths != ''
@@ -194,7 +194,7 @@ jobs:
       # ============================================================
       - name: Setup commitlint
         if: github.event_name == 'pull_request'
-        uses: Yun-Hai-Org/ci-templates/.github/actions/setup-ai-tools@main
+        uses: Yun-Hai-Org/ci-templates/.github/actions/setup-ai-tools@2449d61c5cebe44b6b12c1dc452ad5373d94a0c8
 
       - name: commitlint check (PR commits)
         if: github.event_name == 'pull_request'
