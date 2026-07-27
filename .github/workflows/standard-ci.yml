@@ -518,8 +518,87 @@ jobs:
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
 
-      - uses: ./.github/actions/notify-wecom
-        with:
-          title: ${{ steps.status.outputs.title }}
-          status: ${{ steps.status.outputs.status }}
-          extra: ${{ steps.status.outputs.extra }}
+      - name: Send WeCom notification (template_card)
+        if: ${{ env.WECOM_BOT_KEY != '' }}
+        shell: bash
+        env:
+          WECOM_BOT_KEY: ${{ env.WECOM_BOT_KEY }}
+          TITLE: ${{ steps.status.outputs.title }}
+          STATUS: ${{ steps.status.outputs.status }}
+          EXTRA: ${{ steps.status.outputs.extra }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PYEOF'
+          import json, os, urllib.request
+
+          title = os.environ.get('TITLE', '')
+          status = os.environ.get('STATUS', '')
+          extra = os.environ.get('EXTRA', '')
+          repo = os.environ.get('GITHUB_REPOSITORY', '')
+          actor = os.environ.get('GITHUB_ACTOR', '')
+          event = os.environ.get('GITHUB_EVENT_NAME', '')
+          run_id = os.environ.get('GITHUB_RUN_ID', '')
+          server_url = os.environ.get('GITHUB_SERVER_URL', 'https://github.com')
+          key = os.environ.get('WECOM_BOT_KEY', '')
+
+          ref = os.environ.get('GITHUB_REF', '')
+          branch = ref[11:] if ref.startswith('refs/heads/') else ref
+          if event == 'pull_request':
+              head = os.environ.get('GITHUB_HEAD_REF', '')
+              if head:
+                  branch = head
+
+          run_url = server_url + '/' + repo + '/actions/runs/' + run_id
+
+          status_icons = {'success': '✅', 'failure': '❌', 'started': '🚀'}
+          status_icon = status_icons.get(status, 'ℹ️')
+          status_cn = {'success': '成功', 'failure': '失败', 'started': '开始'}
+          status_text = status_cn.get(status, status)
+          event_cn = {'pull_request': 'Pull Request', 'push': 'Push',
+                      'workflow_dispatch': '手动触发', 'schedule': '定时任务'}
+          event_text = event_cn.get(event, event)
+
+          hcl = [{'keyname': '触发者', 'value': actor},
+                 {'keyname': '事件', 'value': event_text}]
+
+          if extra:
+              for line in extra.split('\n'):
+                  line = line.strip()
+                  if not line or '检查结果' in line:
+                      continue
+                  parts = [p for p in line.split(chr(0x3000)) if p.strip()]
+                  if len(parts) < 2:
+                      continue
+                  kn = parts[0].split(' ', 1)
+                  keyname = kn[-1] if len(kn) == 2 else kn[0]
+                  hcl.append({'keyname': keyname, 'value': parts[1].strip()})
+
+          card = {
+              'card_type': 'text_notice',
+              'main_title': {'title': title, 'desc': repo},
+              'emphasis_content': {'title': status_icon, 'desc': status_text},
+              'sub_title_text': '分支: ' + branch,
+              'horizontal_content_list': hcl,
+              'card_action': {'type': 1, 'url': run_url},
+          }
+          payload = json.dumps({'msgtype': 'template_card', 'template_card': card})
+
+          url = 'https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=' + key
+          req = urllib.request.Request(url, data=payload.encode('utf-8'),
+                                       headers={'Content-Type': 'application/json'})
+          try:
+              with urllib.request.urlopen(req, timeout=10) as resp:
+                  body = resp.read().decode('utf-8')
+              result = json.loads(body)
+              if result.get('errcode') == 0:
+                  print('WeCom notification sent: ' + title)
+              else:
+                  print('::warning::WeCom webhook returned ' + body)
+          except Exception as e:
+              print('::warning::WeCom notification failed: ' + str(e))
+          PYEOF
+
+      - name: Skip WeCom notification (no key)
+        if: ${{ env.WECOM_BOT_KEY == '' }}
+        shell: bash
+        run: echo "::warning::secret WECOM_BOT_KEY not set, skipping WeCom notification"

@@ -140,4 +140,4 @@ with:
 
 ### 通知内容乱码
 
-模板卡片（template_card）为企业微信群机器人默认支持的消息类型。如需切换为 text 或 markdown，修改 `.github/actions/notify-wecom/action.yml` 中的 payload。
+模板卡片（template_card）为企业微信群机器人默认支持的消息类型。如需切换为 text 或 markdown，修改 `.github/workflows/standard-ci.yml` 中 notify-end job 的 Python payload。
