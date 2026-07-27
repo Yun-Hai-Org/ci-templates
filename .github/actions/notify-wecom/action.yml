@@ -1,15 +1,15 @@
 name: Notify WeCom
-description: Send markdown message to WeCom group bot. Requires WECOM_BOT_KEY env var.
+description: Send template_card message to WeCom group bot. Requires WECOM_BOT_KEY env var.
 
 inputs:
   title:
-    description: Message title (e.g. "🚀 CI 开始" / "✅ CI 完成" / "❌ CI 失败").
+    description: Message title (e.g. "✅ CI 完成" / "❌ CI 失败").
     required: true
   status:
-    description: Status string (started / success / failure).
+    description: Status string (success / failure).
     required: true
   extra:
-    description: Extra markdown lines to append to the message body.
+    description: Extra lines (keyname value pairs separated by full-width space) to render as horizontal_content_list.
     required: false
     default: ""
 
@@ -26,91 +26,75 @@ runs:
         EXTRA: ${{ inputs.extra }}
       run: |
         set -euo pipefail
+        python3 - <<'PYEOF'
+        import json, os, urllib.request
 
-        REPO="$GITHUB_REPOSITORY"
-        BRANCH="${GITHUB_REF#refs/heads/}"
-        if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
-          BRANCH="${GITHUB_HEAD_REF:-$BRANCH}"
-        fi
-        ACTOR="$GITHUB_ACTOR"
-        RUN_URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
-        EVENT="$GITHUB_EVENT_NAME"
+        title = os.environ.get('TITLE', '')
+        status = os.environ.get('STATUS', '')
+        extra = os.environ.get('EXTRA', '')
+        repo = os.environ.get('GITHUB_REPOSITORY', '')
+        actor = os.environ.get('GITHUB_ACTOR', '')
+        event = os.environ.get('GITHUB_EVENT_NAME', '')
+        run_id = os.environ.get('GITHUB_RUN_ID', '')
+        server_url = os.environ.get('GITHUB_SERVER_URL', 'https://github.com')
+        key = os.environ.get('WECOM_BOT_KEY', '')
 
-        # 状态图标映射
-        case "$STATUS" in
-          success) STATUS_ICON="✅" ;;
-          failure) STATUS_ICON="❌" ;;
-          started) STATUS_ICON="🚀" ;;
-          *)       STATUS_ICON="ℹ️" ;;
-        esac
+        ref = os.environ.get('GITHUB_REF', '')
+        branch = ref[11:] if ref.startswith('refs/heads/') else ref
+        if event == 'pull_request':
+            head = os.environ.get('GITHUB_HEAD_REF', '')
+            if head:
+                branch = head
 
-        # 事件名中文化
-        case "$EVENT" in
-          pull_request)      EVENT_CN="Pull Request" ;;
-          push)              EVENT_CN="Push" ;;
-          workflow_dispatch) EVENT_CN="手动触发" ;;
-          schedule)          EVENT_CN="定时任务" ;;
-          *)                 EVENT_CN="$EVENT" ;;
-        esac
+        run_url = server_url + '/' + repo + '/actions/runs/' + run_id
 
-        # 状态颜色
-        if [ "$STATUS" = "failure" ]; then
-          STATUS_COLOR="warning"
-        else
-          STATUS_COLOR="info"
-        fi
+        status_icons = {'success': '✅', 'failure': '❌', 'started': '🚀'}
+        status_icon = status_icons.get(status, 'ℹ️')
+        status_cn = {'success': '成功', 'failure': '失败', 'started': '开始'}
+        status_text = status_cn.get(status, status)
+        event_cn = {'pull_request': 'Pull Request', 'push': 'Push',
+                    'workflow_dispatch': '手动触发', 'schedule': '定时任务'}
+        event_text = event_cn.get(event, event)
 
-        # 用 printf 构造消息，确保 \n 是真正的换行符
-        # 企业微信 markdown 用 > 作为引用块，每行都要有 > 前缀
-        {
-          printf '%s\n' "$TITLE"
-          printf '> \n'
-          printf '> 📦 仓库　　<font color="info">%s</font>\n' "$REPO"
-          printf '> 🌿 分支　　<font color="info">%s</font>\n' "$BRANCH"
-          printf '> 👤 触发者　%s\n' "$ACTOR"
-          printf '> ⚙️ 事件　　%s\n' "$EVENT_CN"
-          printf '> %s 状态　　<font color="%s">%s</font>\n' "$STATUS_ICON" "$STATUS_COLOR" "$STATUS"
-          if [ -n "$EXTRA" ]; then
-            printf '> \n'
-            # extra 可能是多行，每行确保以 > 开头
-            while IFS= read -r line; do
-              if [ -n "$line" ]; then
-                # 去掉已有的 > 前缀（避免重复），再统一加
-                clean="${line#> }"
-                clean="${clean#>}"
-                printf '> %s\n' "$clean"
-              else
-                printf '> \n'
-              fi
-            done <<< "$EXTRA"
-          fi
-          printf '> \n'
-          printf '> 👉 [查看 CI 详情](%s)\n' "$RUN_URL"
-        } > /tmp/wecom_content.txt
+        hcl = [{'keyname': '触发者', 'value': actor},
+               {'keyname': '事件', 'value': event_text}]
 
-        CONTENT=$(cat /tmp/wecom_content.txt)
+        if extra:
+            for line in extra.split('\n'):
+                line = line.strip()
+                if not line or '检查结果' in line:
+                    continue
+                parts = [p for p in line.split(chr(0x3000)) if p.strip()]
+                if len(parts) < 2:
+                    continue
+                kn = parts[0].split(' ', 1)
+                keyname = kn[-1] if len(kn) == 2 else kn[0]
+                hcl.append({'keyname': keyname, 'value': parts[1].strip()})
 
-        # Build JSON payload with jq to avoid escaping issues
-        PAYLOAD=$(jq -nc --arg content "$CONTENT" '{msgtype:"markdown",markdown:{content:$content}}')
+        card = {
+            'card_type': 'text_notice',
+            'main_title': {'title': title, 'desc': repo},
+            'emphasis_content': {'title': status_icon, 'desc': status_text},
+            'sub_title_text': '分支: ' + branch,
+            'horizontal_content_list': hcl,
+            'card_action': {'type': 1, 'url': run_url},
+        }
+        payload = json.dumps({'msgtype': 'template_card', 'template_card': card})
 
-        # Send to WeCom webhook (network failures should not fail the CI step)
-        RESPONSE=$(curl -sS -X POST \
-          "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=${WECOM_BOT_KEY}" \
-          -H 'Content-Type: application/json' \
-          -d "$PAYLOAD" 2>/dev/null || echo '{"errcode":-1,"errmsg":"curl network error"}')
-
-        # Check response
-        ERRMSG=$(echo "$RESPONSE" | jq -r '.errmsg // empty' 2>/dev/null || echo "parse error")
-        ERRCODE=$(echo "$RESPONSE" | jq -r '.errcode // empty' 2>/dev/null || echo "-1")
-        if [ "$ERRCODE" != "0" ] && [ -n "$ERRCODE" ]; then
-          echo "::warning::WeCom webhook returned errcode=${ERRCODE} errmsg=${ERRMSG}"
-          echo "Response: $RESPONSE"
-        else
-          echo "WeCom notification sent: ${TITLE}"
-        fi
-
-        # Always exit 0 — notification failures must not block CI
-        exit 0
+        url = 'https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=' + key
+        req = urllib.request.Request(url, data=payload.encode('utf-8'),
+                                     headers={'Content-Type': 'application/json'})
+        try:
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                body = resp.read().decode('utf-8')
+            result = json.loads(body)
+            if result.get('errcode') == 0:
+                print('WeCom notification sent: ' + title)
+            else:
+                print('::warning::WeCom webhook returned ' + body)
+        except Exception as e:
+            print('::warning::WeCom notification failed: ' + str(e))
+        PYEOF
 
     - name: Skip when WECOM_BOT_KEY unset
       if: ${{ env.WECOM_BOT_KEY == '' }}

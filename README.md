@@ -21,8 +21,8 @@ jobs:
   ci:
     uses: Yun-Hai-Org/ci-templates/.github/workflows/standard-ci.yml@main
     with:
-      project-type: 'bun'        # 或 'python' / 'rust' / 'node'
-    secrets: inherit              # 透传 org/repo secrets，未配置的自动跳过
+      project-type: 'bun' # 或 'python' / 'rust' / 'node'
+    secrets: inherit # 透传 org/repo secrets，未配置的自动跳过
 ```
 
 **2. 选 `project-type`**：`bun`（JS/TS，含 MCP Server）/ `python` / `rust` / `node`（npm/yarn/pnpm）。其余 input 全部有默认值，无需填写。
@@ -41,7 +41,6 @@ jobs:
 > 想要 PR 强制阻断（不靠开发者自觉）？升级 GitHub Team 后用 [Organization Ruleset](docs/ruleset-onboarding.md) 全局强制，业务仓库可逐步删除 ci.yml。当前 GitHub Free 阶段用上面的 ci.yml 即可。
 
 更多细节见下方 [Inputs](#inputs) · [Secrets 配置](#secrets-配置) · [接入方式](#接入方式) · [常见配置组合](#常见配置组合)。
-
 
 ## 架构
 
@@ -85,7 +84,7 @@ jobs:
 | **E**  | 上线后验证       | ✅ 开（无文件自动跳过） | promptfoo AI 内容 / k6 压测 / pgbench DB 基准                     |
 | **T**  | 测试执行         | ✅ 开（严格模式）       | bun test / pytest / cargo test / npm test + 集成 + E2E            |
 | **F**  | 流程卡点         | 📋 模板                 | PR 模板 / release checklist / 本地钩子（复制即用）                |
-| —      | 企业微信通知     | ✅ 开                   | CI 开始/结束发 markdown 到群机器人                                |
+| —      | 企业微信通知     | ✅ 开                   | CI 结束发模板卡片到群机器人                                       |
 
 > **设计原则**：所有检查默认开启，工具靠**文件存在性**决定是否执行——无对应文件/不适用时自动跳过并输出 `::notice::` 说明原因。业务仓库接入后零配置即扫描。
 
@@ -480,7 +479,7 @@ jobs:
 
 提 PR 后看到的反馈：
 
-- **企业微信群**：`🚀 CI 开始` → `✅ CI 完成` / `❌ CI 失败`，含各阶段状态
+- **企业微信群**：`✅ CI 完成` / `✅ CI 完成（部分跳过）` / `❌ CI 失败`，模板卡片含各阶段状态
 - **GitHub PR Checks**：`Lint & Format` / `Security Scan` / `Dependency Audit` / `Release Gates` 等 job 状态
 - **Security 标签页**：Semgrep / SonarQube 的 SARIF 漏洞详情
 - **PR 评论**：Gitleaks / GitGuardian 发现的泄露位置

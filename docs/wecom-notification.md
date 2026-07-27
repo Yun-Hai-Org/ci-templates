@@ -1,43 +1,48 @@
 # 企业微信通知配置
 
-CI 检查开始前与完成后，自动向企业微信群发送 markdown 通知。
+CI 检查完成后，自动向企业微信群发送模板卡片（template_card）通知。
 
-## 消息示例
+## 消息样式
 
-### 开始通知
-
-```
-## 🚀 CI 开始
-> **仓库**: Yun-Hai-Org/some-app
-> **分支**: feature/add-login
-> **触发者**: someone
-> **事件**: pull_request
-> **状态**: started
-> **项目类型**: bun
-> **静态分析**: true
-> **安全扫描**: true
-> **依赖审计**: true
-> [查看 CI 详情](https://github.com/Yun-Hai-Org/some-app/actions/runs/12345678)
-```
-
-### 结束通知（成功）
+通知采用企业微信「文本通知型模板卡片」（text_notice），点击卡片可跳转 CI 详情页。
 
 ```
-## ✅ CI 完成
-> **仓库**: Yun-Hai-Org/some-app
-> **分支**: feature/add-login
-> **触发者**: someone
-> **事件**: pull_request
-> **状态**: success
-> **lint**: success
-> **security**: success
-> **dependency**: success
-> [查看 CI 详情](https://github.com/Yun-Hai-Org/some-app/actions/runs/12345678)
+┌───────────────────────────────────┐
+│  ✅ CI 完成                        │  ← main_title.title
+│  Yun-Hai-Org/ci-templates          │  ← main_title.desc (仓库名)
+│                                    │
+│         ✅                         │  ← emphasis_content.title (状态图标)
+│         成功                       │  ← emphasis_content.desc (状态文字)
+│                                    │
+│  分支: feat/wecom-template-card    │  ← sub_title_text
+│                                    │
+│  触发者        pr9898              │  ← horizontal_content_list
+│  事件          Push                │
+│  静态分析      🟡 部分跳过          │
+│  安全扫描      ✅ 成功              │
+│  依赖审计      ⊘ 跳过              │
+│  ...                               │
+│                                    │
+│  [点击卡片查看 CI 详情]            │  ← card_action.url
+└───────────────────────────────────┘
 ```
 
-### 结束通知（失败）
+### 标题与状态映射
 
-标题变为 `❌ CI 失败`，状态 `failure`，对应阶段的 result 显示 `failure`。被关闭的检查显示 `skipped`。
+| 场景     | title                  | status  | emphasis 图标 |
+| -------- | ---------------------- | ------- | ------------- |
+| 全部成功 | ✅ CI 完成             | success | ✅            |
+| 部分跳过 | ✅ CI 完成（部分跳过） | success | ✅            |
+| 有失败   | ❌ CI 失败             | failure | ❌            |
+
+### 检查项状态图标
+
+| 图标        | 含义       |
+| ----------- | ---------- |
+| ✅ 成功     | 检查通过   |
+| 🟡 部分跳过 | 有步骤跳过 |
+| ❌ 失败     | 检查失败   |
+| ⊘ 跳过      | 整项跳过   |
 
 ## 配置步骤
 
@@ -135,4 +140,4 @@ with:
 
 ### 通知内容乱码
 
-确保群机器人支持 markdown 类型消息（默认支持）。如需 text 类型，修改 `.github/actions/notify-wecom/action.yml` 中的 payload。
+模板卡片（template_card）为企业微信群机器人默认支持的消息类型。如需切换为 text 或 markdown，修改 `.github/actions/notify-wecom/action.yml` 中的 payload。

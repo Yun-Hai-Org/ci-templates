@@ -503,7 +503,7 @@ jobs:
           fi
 
           # 多行 output 用 DELIMITER 语法
-          # 注意：extra 里的行不加 > 前缀，notify-wecom action 会统一添加
+          # 注意：extra 行格式为 "emoji 名称　状态"，notify-wecom action 解析为模板卡片 horizontal_content_list
           {
             echo "extra<<EOF"
             echo "📋 检查结果"
