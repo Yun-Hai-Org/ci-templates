@@ -390,7 +390,13 @@ jobs:
                       break
               lines.append(cat + '_STEP_SKIP=' + skip)
           open('/tmp/step_skips.sh', 'w').write('\n'.join(lines) + '\n')
-          print('STEP_SKIP_DEBUG jobs_found=' + str(len(data.get('jobs', []))) + ' ' + ' '.join(lines))
+          try:
+              preview = open('/tmp/run_jobs.json').read()[:200]
+          except Exception:
+              preview = 'NO_FILE'
+          msg = 'STEP_SKIP_DEBUG jobs_found=' + str(len(data.get('jobs', [])))
+          msg = msg + ' preview=' + preview + ' ' + ' '.join(lines)
+          print(msg)
           PYEOF
           . /tmp/step_skips.sh
 
